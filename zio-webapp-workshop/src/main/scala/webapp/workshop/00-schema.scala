@@ -225,6 +225,41 @@ object SchemaSpec extends ZIOSpecDefault {
   }
 
   //
+  // OPERATIONS
+  //
+
+  /**
+   * EXERCISE
+   *
+   * Use `Schema#transform` to change the `Schema[String]` into a
+   * `Schema[UserId]`.
+   */
+  final case class UserId(value: String)
+  object UserId {
+    implicit lazy val schema: Schema[UserId] =
+      Schema[String].TODO
+  }
+
+  /**
+   * EXERCISE
+   *
+   * Use `Schema#transformOrFail` to change the `Schema[String]` into an Email,
+   * but only if the string is a valid email.
+   */
+  sealed abstract case class Email private (value: String)
+  object Email {
+    def isValidEmail(email: String): Boolean =
+      """(?=[^\s]+)(?=(\w+)@([\w\.]+))""".r.findFirstIn(email).isDefined
+
+    def fromString(value: String): Either[String, Email] =
+      if (isValidEmail(value)) Right(new Email(value) {})
+      else Left(s"Invalid email: $value")
+
+    implicit lazy val schema: Schema[Email] =
+      Schema[String].TODO
+  }
+
+  //
   // GENERIC PROGRAMMING
   //
 
@@ -376,6 +411,23 @@ object SchemaSpec extends ZIOSpecDefault {
             val color = Color.Custom(1, 2, 3)
 
             assertTrue(Color.schema.case2.deconstruct(color) == Some(color))
+          }
+      } +
+      suite("operations") {
+        test("transform") {
+          val userId = UserId("sholmes")
+
+          assertTrue(
+            Schema[UserId].toDynamic(userId) ==
+              DynamicValue.Primitive("sholmes", StandardType.StringType)
+          )
+        } +
+          test("transformOrFail") {
+            val validEmail   = DynamicValue.Primitive("sherlock@holmes.com", StandardType.StringType)
+            val invalidEmail = DynamicValue.Primitive("sherlock", StandardType.StringType)
+
+            assertTrue(Schema[Email].fromDynamic(validEmail).isRight) &&
+            assertTrue(Schema[Email].fromDynamic(invalidEmail).isLeft)
           }
       } +
       suite("generic programming") {
