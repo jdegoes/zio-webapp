@@ -220,7 +220,7 @@ object SchemaSpec extends ZIOSpecDefault {
      * Automatically derive a schema for the sealed trait `Color` using
      * `DeriveSchema.gen` method.
      */
-    implicit lazy val schema: Schema.Enum4[Red.type, Green.type, Blue.type, Custom, Color] =
+    implicit lazy val schema: Schema.Enum4[Blue.type, Custom, Green.type, Red.type, Color] =
       ???
   }
 
@@ -375,7 +375,7 @@ object SchemaSpec extends ZIOSpecDefault {
           test("enum derivation") {
             val color = Color.Custom(1, 2, 3)
 
-            assertTrue(Color.schema.case4.deconstruct(color) == Some(color))
+            assertTrue(Color.schema.case2.deconstruct(color) == Some(color))
           }
       } +
       suite("generic programming") {
