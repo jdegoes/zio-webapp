@@ -38,7 +38,7 @@ object JsonSpec extends ZIOSpecDefault {
   /**
    * EXERCISE
    *
-   * Create a JSON object with fields `name` (set to "Peter") and age (set to
+   * Create a JSON object with fields `name` (set to "Peter") and `age` (set to
    * 43).
    */
   lazy val json2: Json = TODO
