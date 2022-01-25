@@ -41,7 +41,7 @@ object JsonSpec extends ZIOSpecDefault {
    * Create a JSON object with fields `name` (set to "Peter") and age (set to
    * 43).
    */
-  lazy val json2: Json = ???
+  lazy val json2: Json = TODO
 
   /**
    * EXERCISE
@@ -282,7 +282,7 @@ object JsonSpec extends ZIOSpecDefault {
    * Convert from a stream of people to a stream of JSON strings.
    */
   def toJsonStream(stream: ZStream[Any, Nothing, Person]): ZStream[Any, Nothing, String] =
-    ???
+    TODO
 
   /**
    * EXERCISE
@@ -290,7 +290,7 @@ object JsonSpec extends ZIOSpecDefault {
    * Convert from a stream of JSON strings to a stream of people.
    */
   def toPeopleStream(stream: ZStream[Any, Nothing, String]): ZStream[Any, String, Person] =
-    ???
+    TODO
 
   def spec = suite("JsonSpec") {
     suite("JSON AST") {

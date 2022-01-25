@@ -1,9 +1,9 @@
-val ZioVersion       = "2.0.0-RC1"
-val ZioJsonVersion   = "0.3.0-RC2"
-val ZioHttpVersion   = "2.0.0-RC2"
-val ZioConfigVersion = "3.0.0-RC1"
-val ZioSchemaVersion = "0.2.0-RC1-1"
-val ZioLogging       = "2.0.0-RC4"
+val ZioVersion        = "2.0.0-RC1"
+val ZioJsonVersion    = "0.3.0-RC2"
+val ZioHttpVersion    = "2.0.0-RC2"
+val ZioConfigVersion  = "3.0.0-RC1"
+val ZioSchemaVersion  = "0.2.0-RC1-1"
+val ZioLoggingVersion = "2.0.0-RC4"
 
 ThisBuild / organization := "dev.zio"
 ThisBuild / version      := "0.1.0"
@@ -41,6 +41,7 @@ lazy val commonDeps = libraryDependencies ++= Seq(
   "dev.zio" %% "zio-schema"            % ZioSchemaVersion,
   "dev.zio" %% "zio-schema-derivation" % ZioSchemaVersion,
   "dev.zio" %% "zio-schema-protobuf"   % ZioSchemaVersion,
+  "dev.zio" %% "zio-logging"           % ZioLoggingVersion,
   "io.d11"  %% "zhttp-test"            % ZioHttpVersion % Test,
   "dev.zio" %% "zio-test"              % ZioVersion     % Test,
   "dev.zio" %% "zio-test-sbt"          % ZioVersion     % Test
