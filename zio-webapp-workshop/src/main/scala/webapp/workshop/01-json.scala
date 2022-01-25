@@ -339,14 +339,14 @@ object JsonSpec extends ZIOSpecDefault {
     } +
       suite("encoders") {
         test("encode map of list") {
-          assertTrue(encodedMap1 == """{"John":[1,2,3],"Peter":[4,5,6]}""")
+          assertTrue(encodedMap1.toString() == """{"John":[1,2,3],"Peter":[4,5,6]}""")
         } +
           test("contramap input") {
             val email = Email("sherlock@holmes.com")
 
             assertTrue(
-              JsonEncoder[String].contramap[Email](_.value).encodeJson(email, None) ==
-                emailEncoder.encodeJson(email, None)
+              JsonEncoder[String].contramap[Email](_.value).encodeJson(email, None).toString() ==
+                emailEncoder.encodeJson(email, None).toString()
             )
           } +
           test("both") {

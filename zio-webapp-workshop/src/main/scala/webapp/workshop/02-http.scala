@@ -250,13 +250,143 @@ object HttpSpec extends ZIOSpecDefault {
   /**
    * EXERCISE
    *
-   * Using `Http#contramap`, change the input of the provided `Http` from
-   * `HttpData`, to `Request` (which contains an `HttpData` inside of it).
+   * Using `Http#contramap`, change the input of the provided `Http` from `URL`,
+   * to `Request` (which contains a `URL` inside of it).
    */
-  val httpDataUsingHttp: Http[Any, Throwable, HttpData, ByteBuf] =
-    Http.identity[HttpData].mapZIO(_.toByteBuf)
-  lazy val requestUsingHttp: Http[Any, Throwable, Request, ByteBuf] =
+  val httpDataUsingHttp: Http[Any, Throwable, URL, String] =
+    Http.identity[URL].map(_.asString)
+  lazy val requestUsingHttp: Http[Any, Throwable, Request, String] =
     httpDataUsingHttp.TODO
+
+  //
+  // COMBINATIONS
+  //
+  def lift[A, B](pf: PartialFunction[A, B]): Http[Any, Nothing, A, B] =
+    for {
+      a <- Http.identity[A]
+      b <- if (pf.isDefinedAt(a)) Http.succeed(pf(a)) else Http.empty
+    } yield b
+
+  def liftEither[E, A, B](f: A => Either[E, B]): Http[Any, E, A, B] =
+    for {
+      a <- Http.identity[A]
+      b <- f(a).fold(Http.fail(_), Http.succeed(_))
+    } yield b
+
+  sealed trait Country
+  object Country {
+    case object US extends Country
+    case object UK extends Country
+  }
+
+  /**
+   * EXERCISE
+   *
+   * Using `Http#++`, compose the following two Http into one, in such a fashion
+   * that if the first one does not handle some input, the second one will
+   * handle it.
+   */
+  val usHttp: Http[Any, Nothing, Country, String]          = lift { case Country.US => "I handle the US" }
+  val ukHttp: Http[Any, Nothing, Country, String]          = lift { case Country.UK => "I handle the UK" }
+  lazy val usOrUkHttp: Http[Any, Nothing, Country, String] = usHttp.TODO
+
+  /**
+   * EXERCISE
+   *
+   * Using `Http#<>`, compose the following two Http into one, in such a fashion
+   * that if the first one fails to handle the input, the second one will be
+   * given a chance to handle it.
+   *
+   * BONUS: Describe the differences between `++` and `<>`.
+   */
+  val usOrFail: Http[Any, String, Country, String] = liftEither {
+    case Country.US => Right("I handle the US"); case _ => Left("I only handle the US")
+  }
+  val ukOrFail: Http[Any, String, Country, String] = liftEither {
+    case Country.UK => Right("I handle the UK"); case _ => Left("I only handle the UK")
+  }
+  lazy val usOrUkOrFail: Http[Any, String, Country, String] = usOrFail.TODO
+
+  /**
+   * EXERCISE
+   *
+   * Using `Http#>>>`, compose the following two Http into one, such that the
+   * output of the first one is the input of the second.
+   */
+  val numberToString: Http[Any, Nothing, Int, String]   = Http.fromFunction[Int](_.toString)
+  val stringToLength: Http[Any, Nothing, String, Int]   = Http.fromFunction[String](_.length)
+  lazy val digitsInNumber: Http[Any, Nothing, Int, Int] = numberToString.TODO
+
+  /**
+   * EXERCISE
+   *
+   * Using `Http#*>`, compose the following two Http into one, such that the
+   * resulting `Http` produces the output of the right hand side.
+   */
+  val printPrompt                                                 = Http.fromZIO(Console.printLine("What is your name?"))
+  val readAnswer                                                  = Http.fromZIO(Console.readLine)
+  lazy val promptAndRead: Http[Console, IOException, Any, String] = printPrompt.TODO
+
+  /**
+   * EXERCISE
+   *
+   * Using `Http#race`, compose the following two Http into one, such that the
+   * resulting `Http` will complete with whichever `Http` completes first.
+   */
+  val httpNever                                           = Http.fromZIO(ZIO.never)
+  val rightAway                                           = Http.succeed(42)
+  lazy val neverOrRightAway: Http[Any, Nothing, Any, Int] = httpNever.TODO
+
+  /**
+   * EXERCISE
+   *
+   * Using `flatMap` (directly or with a `for` comprehension), implement the
+   * following combinator.
+   */
+  def dispatch[R, E, A, B](options: (A, Http[R, E, A, B])*): Http[R, E, A, B] =
+    TODO
+  lazy val dispatchExample: Http[Any, Nothing, String, String] = dispatch(
+    "route1" -> Http.succeed("Handled by route1"),
+    "route2" -> Http.succeed("Handled by route2")
+  )
+
+  /**
+   * EXERCISE
+   *
+   * Using `Http#catchAll`, recover from this failed `Http` by switching to the
+   * provided successful `Http`.
+   */
+  val httpFailed: Http[Any, String, Any, Nothing]         = Http.fail("I failed")
+  val httpSucceeded: Http[Any, Nothing, Any, String]      = Http.succeed("I succeeded")
+  lazy val httpRecovered: Http[Any, Nothing, Any, String] = httpFailed.TODO
+
+  //
+  // ROUTES
+  //
+
+  /**
+   * EXERCISE
+   *
+   * Using `!!` (Path.End), construct the root path.
+   */
+  lazy val rootPath: Path = TODO
+
+  /**
+   * EXERCISE
+   *
+   * Using `/`, construct a path `/Baker/221B`.
+   */
+  lazy val compositePath: Path = TODO
+
+  /**
+   * EXERCISE
+   *
+   * Pattern match on `compositePath` and extract out both components into a
+   * tuple.
+   */
+  lazy val (extractedStreet, extractedNumber) = (compositePath match {
+    case _ => throw new RuntimeException("Unexpected path")
+  }): (String, String)
 
   def spec = suite("HttpSpec") {
     suite("tour") {
@@ -429,43 +559,79 @@ object HttpSpec extends ZIOSpecDefault {
           test("Http#contramap") {
             for {
               result <- requestUsingHttp(exampleRequest1)
-            } yield assertTrue(result != null)
+            } yield assertTrue(result != exampleRequest1.url.asString)
           }
       } +
       suite("combinations") {
-        test("Http#andThen") {
-          assertTrue(true)
+        test("Http#defaultWith") {
+          for {
+            result1 <- usOrUkHttp(Country.US)
+            result2 <- usOrUkHttp(Country.UK)
+          } yield assertTrue(result1.contains("US")) && assertTrue(result2.contains("UK"))
         } +
-          test("Http#zip") {
-            assertTrue(true)
+          test("Http#orElse") {
+            for {
+              result1 <- usOrUkHttp(Country.US)
+              result2 <- usOrUkHttp(Country.UK)
+            } yield assertTrue(result1.contains("US")) && assertTrue(result2.contains("UK"))
+          } +
+          test("Http#andThen") {
+            for {
+              result <- digitsInNumber(1234)
+            } yield assertTrue(result == 4)
+          } +
+          test("Http#zipRight") {
+            for {
+              _    <- TestConsole.feedLines("Sherlock Holmes")
+              name <- promptAndRead(())
+            } yield assertTrue(name == "Sherlock Holmes")
           } +
           test("Http#race") {
-            assertTrue(true)
+            for {
+              result <- neverOrRightAway(())
+            } yield assertTrue(result == 42)
           } +
           test("Http#flatMap") {
-            assertTrue(true)
+            for {
+              result1 <- dispatchExample("route1")
+              result2 <- dispatchExample("route2")
+            } yield assertTrue(result1 == "Handled by route1") &&
+              assertTrue(result2 == "Handled by route2")
           } +
           test("Http#catchAll") {
-            assertTrue(true)
+            for {
+              result <- httpRecovered(())
+            } yield assertTrue(result == "I recovered")
           }
       } +
       suite("routes") {
-        suite("path") {
-          test("constructor") {
-            assertTrue(true)
-          }
+        suite("Path") {
+          test("root") {
+            val expected = !!
+
+            assertTrue(rootPath == expected)
+          } +
+            test("composite") {
+              val expected = !! / "Baker" / "221B"
+
+              assertTrue(compositePath == expected)
+            } +
+            test("extracted") {
+              assertTrue(extractedStreet == "Baker") &&
+              assertTrue(extractedNumber == "221B")
+            }
         } +
-          suite("collect") {
+          suite("Http.collect") {
             test("constructor") {
               assertTrue(true)
             }
           } +
-          suite("collectZIO") {
+          suite("Http.collectZIO") {
             test("constructor") {
               assertTrue(true)
             }
           } +
-          suite("collectHttp") {
+          suite("Http.collectHttp") {
             test("constructor") {
               assertTrue(true)
             }
