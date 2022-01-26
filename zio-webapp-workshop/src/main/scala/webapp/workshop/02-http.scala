@@ -913,7 +913,7 @@ object HttpSpec extends ZIOSpecDefault {
           } yield assertTrue(initial == Chunk.empty) &&
             assertTrue(after(0).description == "Buy milk") &&
             assertTrue(updated.get.description == "Buy almond milk")).provideCustomLayer(TodoRepo.testLayer)
-        }
+        } @@ ignore
       }
   }
 }
