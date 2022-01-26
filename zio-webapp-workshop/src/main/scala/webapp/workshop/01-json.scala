@@ -14,6 +14,7 @@ package webapp.workshop
 import zio.Chunk
 import zio.json._
 import zio.test._
+import zio.test.TestAspect.ignore
 import zio.stream._
 
 object JsonSpec extends ZIOSpecDefault {
@@ -296,51 +297,51 @@ object JsonSpec extends ZIOSpecDefault {
     suite("JSON AST") {
       test("construction") {
         assertTrue(json2.toString == """{"name":"Peter","age":43}""")
-      } +
+      } @@ ignore +
         test("successful parsing") {
           assertTrue(json3 == Right(json1))
-        } +
+        } @@ ignore +
         test("unsuccessful parsing") {
           assertTrue(jsonString1.fromJson[Json].isLeft)
-        } +
+        } @@ ignore +
         test("folding") {
           assertTrue(strCount1 == 1)
-        } +
+        } @@ ignore +
         suite("cursors") {
           test("identity cursor") {
             assertTrue(json1.get(identityCursor) == Right(json1))
-          } +
+          } @@ ignore +
             test("object cursor") {
               assertTrue(json1.get(objCursor) == Right(json1)) &&
               assertTrue(Json.Bool(true).get(objCursor).isLeft)
-            } +
+            } @@ ignore +
             test("array cursor") {
               val arr = Json.Arr(Chunk(Json.Num(1), Json.Num(2)))
 
               assertTrue(arr.get(arrCursor) == Right(arr)) &&
               assertTrue(json1.get(arrCursor).isLeft)
-            } +
+            } @@ ignore +
             test("field cursor") {
               assertTrue(json1.get(nameFieldCursor) == Right(Json.Str("John")))
-            } +
+            } @@ ignore +
             test("element cursor") {
               val arr = Json.Arr(Chunk(Json.Num(1), Json.Num(2)))
 
               assertTrue(arr.get(firstElementCursor) == Right(Json.Num(1)))
-            }
+            } @@ ignore
         } +
         test("get") {
           assertTrue(nameFromJson1 == Right(Json.Str("John")))
-        } +
+        } @@ ignore +
         test("merge") {
           assertTrue(merged1.get(JsonCursor.field("age")).isRight) &&
           assertTrue(merged1.get(JsonCursor.field("weight")).isRight)
-        }
+        } @@ ignore
     } +
       suite("encoders") {
         test("encode map of list") {
           assertTrue(encodedMap1.toString() == """{"John":[1,2,3],"Peter":[4,5,6]}""")
-        } +
+        } @@ ignore +
           test("contramap input") {
             val email = Email("sherlock@holmes.com")
 
@@ -348,14 +349,14 @@ object JsonSpec extends ZIOSpecDefault {
               JsonEncoder[String].contramap[Email](_.value).encodeJson(email, None).toString() ==
                 emailEncoder.encodeJson(email, None).toString()
             )
-          } +
+          } @@ ignore +
           test("both") {
             val tuple = ("John", 42)
 
             assertTrue(
               tupleEncoder1.encodeJson(tuple, None).fromJson[(String, Int)].isRight
             )
-          } +
+          } @@ ignore +
           suite("derivation") {
             test("case class") {
               val review =
@@ -365,7 +366,7 @@ object JsonSpec extends ZIOSpecDefault {
               val decoder = DeriveJsonDecoder.gen[RestaurantReview]
 
               assertTrue(decoder.decodeJson(encoder.encodeJson(review, None)).right.get == review)
-            } +
+            } @@ ignore +
               test("sealed trait") {
                 val event: PurchaseEvent = PurchaseEvent.OrderPlaced("order-1", 12345L)
 
@@ -373,13 +374,13 @@ object JsonSpec extends ZIOSpecDefault {
                 val decoder = DeriveJsonDecoder.gen[PurchaseEvent]
 
                 assertTrue(decoder.decodeJson(encoder.encodeJson(event, None)).right.get == event)
-              }
+              } @@ ignore
           }
       } +
       suite("decoders") {
         test("decode map of list") {
           assertTrue(decodedMap1 == map1)
-        } +
+        } @@ ignore +
           test("map output") {
             val email = emailEncoder.encodeJson(Email("sherlock@holmes.com"), None)
 
@@ -387,16 +388,16 @@ object JsonSpec extends ZIOSpecDefault {
               JsonDecoder[String].map(Email(_)).decodeJson(email) ==
                 emailDecoder.decodeJson(email)
             )
-          } +
+          } @@ ignore +
           test("tuple") {
             val tuple = tupleEncoder1.encodeJson(("John", 42), None)
 
             assertTrue(tupleDecoder1.decodeJson(tuple).isRight)
-          } +
+          } @@ ignore +
           test("fallback") {
             assertTrue(boolOrIntDecoder.decodeJson(Json.Bool(true).toString()) == Right(Left(true))) &&
             assertTrue(boolOrIntDecoder.decodeJson(Json.Num(1).toString()) == Right(Right(1)))
-          } +
+          } @@ ignore +
           suite("derivation") {
             test("case class") {
               val review =
@@ -406,7 +407,7 @@ object JsonSpec extends ZIOSpecDefault {
               val decoder = JsonDecoder[RestaurantReview]
 
               assertTrue(decoder.decodeJson(encoder.encodeJson(review, None)).right.get == review)
-            } +
+            } @@ ignore +
               test("sealed trait") {
                 val event: PurchaseEvent = PurchaseEvent.OrderPlaced("order-1", 12345L)
 
@@ -414,7 +415,7 @@ object JsonSpec extends ZIOSpecDefault {
                 val decoder = JsonDecoder[PurchaseEvent]
 
                 assertTrue(decoder.decodeJson(encoder.encodeJson(event, None)).right.get == event)
-              }
+              } @@ ignore
           }
       } +
       suite("codecs") {
@@ -425,14 +426,14 @@ object JsonSpec extends ZIOSpecDefault {
           val decoder = JsonDecoder[Doc]
 
           assertTrue(decoder.decodeJson(encoder.encodeJson(doc, None)).right.get == doc)
-        }
+        } @@ ignore
       } +
       suite("streaming") {
         test("decode & encode") {
           for {
             people2 <- toPeopleStream(toJsonStream(peopleStream)).runCollect
           } yield assertTrue(people2.toList == people)
-        }
+        } @@ ignore
       }
   }
 }

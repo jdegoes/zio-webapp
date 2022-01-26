@@ -77,7 +77,7 @@ object LoggingSpec extends ZIOSpecDefault {
    */
   lazy val testLoggerAspect: RuntimeConfigAspect =
     RuntimeConfigAspect { config =>
-      config.TODO
+      config // TODO
     }
 
   //
@@ -189,40 +189,40 @@ object LoggingSpec extends ZIOSpecDefault {
 
         assertTrue(output.contains(message)) &&
         assertTrue(output.contains("INFO"))
-      } +
+      } @@ ignore +
         test("backend") {
           val message = "All work and no play makes jack a dull boy"
 
           assertLogged(ZIO.logInfo(message))(message)
-        }
-    } @@ ignore +
+        } @@ ignore
+    } +
       suite("logging methods") {
         test("logInfo") {
           assertLogged(coffeeLogInfo)("coffee", "INFO")
-        } +
+        } @@ ignore +
           test("logDebug") {
             assertLogged(teaLogDebug)("tea", "DEBUG")
-          } +
+          } @@ ignore +
           test("logError") {
             assertLogged(milkLogError)("milk", "ERROR")
-          } +
+          } @@ ignore +
           test("log") {
             assertLogged(curryLog)("curry", "INFO")
-          } +
+          } @@ ignore +
           test("LogLevel.DEBUG") {
             assertLogged(logLevelDebug)("DEBUG")
-          } +
+          } @@ ignore +
           test("LogLevel.ERROR") {
             assertLogged(logLevelError)("ERROR")
-          }
-      } @@ ignore +
+          } @@ ignore
+      } +
       suite("ZIO Logging") {
         test("LogFormat") {
           assertLoggedWith(ZIO.log("Testing"), myLogFormat)("Testing", "INFO")
-        } +
+        } @@ ignore +
           test("console") {
             assertNotLogged(testEffect)("Hello World!")
-          }
+          } @@ ignore
       }
   } @@ sequential @@ runtimeConfig(testLoggerAspect) @@ after(logOutput.set(Chunk.empty))
 }

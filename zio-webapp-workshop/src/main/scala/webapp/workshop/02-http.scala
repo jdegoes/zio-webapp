@@ -15,6 +15,7 @@ package webapp.workshop
 
 import zio._
 import zio.test._
+import zio.test.TestAspect.ignore
 import zio.json._
 import zhttp.http._
 import java.io.IOException
@@ -388,7 +389,253 @@ object HttpSpec extends ZIOSpecDefault {
     case _ => throw new RuntimeException("Unexpected path")
   }): (String, String)
 
+  /**
+   * EXERCISE
+   *
+   * Using the following pattern match as a reference, pattern match against the
+   * provided request using literals, and if successful, return the string "It
+   * matches!".
+   */
+  Request(method = Method.GET, url = URL(!! / "Baker" / "221B")) match {
+    case Method.GET -> !! / "Baker" / "221B" => "It matches!"
+  }
+  val exampleRequest2                  = Request(method = Method.POST, url = URL(!! / "users" / "sholmes"))
+  lazy val exampleRequestMatch: String = exampleRequest2.TODO
+
+  /**
+   * EXERCISE
+   *
+   * Using `Http.collect`, construct an `HttpApp` that will handle the following
+   * paths:
+   *
+   * {{{
+   * /greet
+   * /farewell
+   * }}}
+   *
+   * The `HttpApp` should respond with the greeting "Hello there!" (for the
+   * first path), and the farewell "Goodbye!" (for the second path).
+   */
+  lazy val greetAndFarewell: HttpApp[Any, Nothing] =
+    Http.collect[Request].TODO
+
+  object UserRepo {
+    def lookupUser(id: String): ZIO[Any, Option[Nothing], Person] = ZIO.fromOption(id match {
+      case "sholmes" => Some(Person("Sherlock Holmes", 43))
+      case "jwatson" => Some(Person("John Watson", 46))
+      case _         => None
+    })
+  }
+
+  /**
+   * EXERCISE
+   *
+   * Using `Http.collectZIO`, construct an `HttpApp` that will handle the route
+   * `/users/:id` and use `lookupUser` to lookup the user corresponding to the
+   * specified id and return their full name as plain text.
+   */
+  lazy val lookupUserApp: HttpApp[Any, Option[Nothing]] =
+    Http.collectZIO[Request].TODO
+
+  /**
+   * EXERCISE
+   *
+   * Using `Http.collectHttp`, collect the `greetAndFarewell` and
+   * `lookupUserApp` HttpApps into one by using the provided routing table.
+   */
+  val exampleRoutingTable: PartialFunction[Request, HttpApp[Any, Option[Nothing]]] = {
+    case Method.GET -> !! / "users" => lookupUserApp
+    case other                      => greetAndFarewell
+  }
+  lazy val exampleRouting: HttpApp[Any, Option[Nothing]] =
+    Http.collectHttp(exampleRoutingTable)
+
+  //
+  // SERVERS
+  //
+
+  /**
+   * EXERCISE
+   *
+   * Using `zhttp.service.Server` and its `startDefault` method, start up the
+   * `helloWorld` app.
+   */
+  import zhttp.service._
+  type ServerType = ZIO[Any, Throwable, Nothing]
+  lazy val helloWorldServer: ServerType = helloWorld.TODO
+
+  //
+  // GRADUATION
+  //
+
+  /**
+   * EXERCISE
+   *
+   * Create a `JsonCodec` for the following TODO class.
+   */
+  final case class Todo(id: Long, description: String, created: java.time.Instant, modified: java.time.Instant)
+  object Todo {
+    implicit lazy val jsonCodec: JsonCodec[Todo] = TODO
+  }
+
+  /**
+   * EXERCISE
+   *
+   * Create a `JsonCodec` for the following `TodoDescription` class.
+   */
+  final case class TodoDescription(description: String)
+  object TodoDescription {
+    implicit lazy val jsonCodec: JsonCodec[TodoDescription] = TODO
+  }
+
+  /**
+   * EXERCISE
+   *
+   * Create a `JsonCodec` for the following `TodoCreated` class.
+   */
+  final case class TodoCreated(id: Long)
+  object TodoCreated {
+    implicit lazy val jsonCodec: JsonCodec[TodoCreated] = TODO
+  }
+
+  final case class TodoRepo(clock: Clock, idGen: Ref[Long], todos: Ref[Map[Long, Todo]]) {
+    def getAll: UIO[Chunk[Todo]] =
+      for {
+        _     <- ZIO.debug("Getting all todos")
+        chunk <- todos.get.map(map => Chunk.fromIterable(map.values))
+        _     <- ZIO.debug(s"Retrieved todos $chunk")
+      } yield chunk
+
+    def create(description: => String): UIO[Todo] =
+      for {
+        _       <- ZIO.debug(s"Creating todo with description: $description")
+        id      <- idGen.updateAndGet(_ + 1)
+        created <- clock.instant
+        todo     = Todo(id, description, created, created)
+        _       <- todos.update(_ + (id -> todo))
+      } yield todo
+
+    def getById(id: Long): UIO[Option[Todo]] =
+      for {
+        _   <- ZIO.debug(s"Getting todo with id: $id")
+        map <- todos.get
+      } yield map.get(id)
+
+    def updateTodo(id: Long, description: => String): UIO[Option[Todo]] =
+      for {
+        _        <- ZIO.debug(s"Updating todo with id: $id and description: $description")
+        modified <- clock.instant
+        todo <- todos.modify { map =>
+                  map.get(id) match {
+                    case Some(value) =>
+                      val newTodo = value.copy(description = description, modified = modified)
+                      (Some(newTodo), map + (id -> newTodo))
+
+                    case None => (None, map)
+                  }
+                }
+      } yield todo
+  }
+  object TodoRepo {
+    val testLayer: ZLayer[Clock, Nothing, TodoRepo] =
+      ZLayer {
+        for {
+          clock <- ZIO.service[Clock]
+          idGen <- Ref.make(0L)
+          todos <- Ref.make(Map.empty[Long, Todo])
+        } yield TodoRepo(clock, idGen, todos)
+      }
+
+    def getAll: ZIO[TodoRepo, Nothing, Chunk[Todo]] = ZIO.serviceWithZIO(_.getAll)
+
+    def create(description: => String): ZIO[TodoRepo, Nothing, Todo] = ZIO.serviceWithZIO(_.create(description))
+
+    def getById(id: Long): ZIO[TodoRepo, Nothing, Option[Todo]] = ZIO.serviceWithZIO(_.getById(id))
+
+    def updateTodo(id: Long, description: => String): ZIO[TodoRepo, Nothing, Option[Todo]] =
+      ZIO.serviceWithZIO(_.updateTodo(id, description))
+  }
+
+  /**
+   * EXERCISE
+   *
+   * Create an extension method that lets you convert any JSON-encodable value
+   * to a `Response`, using the correct `Content-Type` header.
+   */
+  implicit class AnyExtensions[A](val any: A) extends AnyVal {
+    def toResponse(implicit jsonEncoder: JsonEncoder[A]): Response = TODO
+  }
+
+  /**
+   * EXERCISE
+   *
+   * Create an extension method that lets you convert any request to a type
+   * having a `JsonDecoder`.
+   */
+  implicit class RequestExtensions(val request: Request) extends AnyVal {
+    def as[A: JsonDecoder]: Task[A] = TODO
+  }
+
+  /**
+   * EXERCISE
+   *
+   * Create an `HttpApp` that will handle the following routes: {{ GET /todos
+   * Lists all of the todos as a JSON Array GET /todos/:id Gets the todo with
+   * the specified id POST /todos Creates a new todo PUT /todos/:id Updates the
+   * todo with the specified id }}
+   */
+  lazy val todoApp: HttpApp[TodoRepo, Throwable] =
+    Http.collectZIO[Request].TODO
+
+  implicit class ResponseExtensions(val response: Response) extends AnyVal {
+    def as[A: JsonDecoder]: Task[A] =
+      for {
+        chunk      <- response.data.toByteBuf.map(buf => Chunk.fromArray(buf.array()))
+        chunkString = new String(chunk.toArray)
+        result <- ZIO
+                    .fromEither(JsonDecoder[A].decodeJson(new String(chunk.toArray)))
+                    .mapError(e => throw new RuntimeException(e))
+      } yield result
+  }
+
+  final case class TodoAppTester[R](todoApp: HttpApp[R, Throwable]) {
+    def getAll: ZIO[R, Throwable, Chunk[Todo]] =
+      makeRequest[Chunk[Todo]](Request(Method.GET, URL(!! / "todos")))
+
+    def getById(id: Long): ZIO[R, Throwable, Option[Todo]] =
+      makeRequest[Todo](Request(Method.GET, URL(!! / "todos" / id.toString)))
+        .map(Some(_))
+
+    def create(description: String): ZIO[R, Throwable, Long] =
+      makeRequest[TodoCreated](
+        Request(
+          method = Method.POST,
+          url = URL(!! / "todos"),
+          headers = Headers("Content-Type", HeaderValues.applicationJson),
+          data = HttpData.fromString(TodoDescription(description).toJson)
+        )
+      ).map(_.id).mapError(_ => new RuntimeException("Cannot decode!"))
+
+    def update(id: Long, description: String): ZIO[R, Throwable, Unit] =
+      makeRequest[Option[Todo]](
+        Request(
+          method = Method.PUT,
+          url = URL(!! / "todos" / id.toString),
+          headers = Headers("Content-Type", HeaderValues.applicationJson),
+          data = HttpData.fromString(TodoDescription(description).toJson)
+        )
+      ).unit.mapError(_ => new RuntimeException("Cannot decode!"))
+
+    private def makeRequest[A: JsonDecoder](req: Request): ZIO[R, Throwable, A] =
+      for {
+        response <- todoApp(req).catchAll(_ => ZIO.succeed(Response.status(Status.INTERNAL_SERVER_ERROR)))
+        result   <- response.as[A]
+      } yield result
+  }
+
   def spec = suite("HttpSpec") {
+    def req(path: Path): Request = Request(url = URL(path))
+
     suite("tour") {
       test("hello world") {
         for {
@@ -444,28 +691,28 @@ object HttpSpec extends ZIOSpecDefault {
               result <- unhandled(()).flip
               cmp     = result == None
             } yield assertTrue(cmp)
-          } +
+          } @@ ignore +
             test("Http.succeed") {
               for {
                 result <- httpSuccess(())
               } yield assertTrue(result == 42)
-            } +
+            } @@ ignore +
             test("Http.fail") {
               for {
                 result <- httpFailure(()).flip
               } yield assertTrue(result == Some(42))
-            } +
+            } @@ ignore +
             test("Http.identity") {
               for {
                 result <- stringIdentity("hello")
               } yield assertTrue(result == "hello")
-            } +
+            } @@ ignore +
             test("Http.fromZIO") {
               for {
                 _    <- TestConsole.feedLines("hello, mother")
                 line <- consoleHttp(())
               } yield assertTrue(line == "hello, mother")
-            }
+            } @@ ignore
         } +
           suite("HttpApp") {
             test("constructor") {
@@ -476,35 +723,35 @@ object HttpSpec extends ZIOSpecDefault {
               )
 
               assertTrue(exampleRequest1 == expected)
-            } +
+            } @@ ignore +
               test("Response") {
                 val expected =
                   Response(status = Status.OK, data = HttpData.fromString("Hello World!"))
 
                 assertTrue(exampleResponse1 == expected)
-              } +
+              } @@ ignore +
               test("Http.ok") {
                 for {
                   result <- httpOk(exampleRequest1)
                 } yield assertTrue(result.status == Status.OK)
-              } +
+              } @@ ignore +
               test("Http.notFound") {
                 for {
                   result <- httpOk(exampleRequest1)
                 } yield assertTrue(result.status == Status.NOT_FOUND)
-              } +
+              } @@ ignore +
               test("Http.badRequest") {
                 for {
                   result <- httpOk(exampleRequest1)
                 } yield assertTrue(result.status == Status.BAD_REQUEST)
-              } +
+              } @@ ignore +
               test("Http.error") {
                 val error = HttpError.InternalServerError("boom")
 
                 for {
                   result <- httpError(error)(exampleRequest1)
                 } yield assertTrue(result.status == error.status)
-              } +
+              } @@ ignore +
               test("Http.fromData") {
                 val data = HttpData.fromString("Hello World!")
 
@@ -512,7 +759,7 @@ object HttpSpec extends ZIOSpecDefault {
                 val expected = Http.fromData(data)
 
                 assertTrue(actual == expected)
-              } +
+              } @@ ignore +
               test("Http.fromFile") {
                 val file = new java.io.File("build.sbt")
 
@@ -520,13 +767,13 @@ object HttpSpec extends ZIOSpecDefault {
                 val expected = Http.fromFile(file)
 
                 assertTrue(actual == expected)
-              } +
+              } @@ ignore +
               test("Http.response") {
                 val actual   = httpFromResponse(exampleResponse1)
                 val expected = Http.response(exampleResponse1)
 
                 assertTrue(actual == expected)
-              } +
+              } @@ ignore +
               test("Http.responseZIO") {
                 val zio = ZIO.succeed(exampleResponse1)
 
@@ -534,7 +781,7 @@ object HttpSpec extends ZIOSpecDefault {
                 val expected = Http.responseZIO(zio)
 
                 assertTrue(actual == expected)
-              }
+              } @@ ignore
           }
       } +
       suite("transformations") {
@@ -542,7 +789,7 @@ object HttpSpec extends ZIOSpecDefault {
           for {
             result <- stringHttp(())
           } yield assertTrue(result == "42")
-        } +
+        } @@ ignore +
           test("Http#mapZIO") {
             for {
               _      <- TestConsole.feedLines("John")
@@ -550,17 +797,17 @@ object HttpSpec extends ZIOSpecDefault {
               output <- TestConsole.output.map(_.mkString)
             } yield assertTrue(output.contains("What is your name?")) &&
               assertTrue(name == "John")
-          } +
+          } @@ ignore +
           test("Http#as") {
             for {
               result <- unitHttp(())
             } yield assertTrue(result == ())
-          } +
+          } @@ ignore +
           test("Http#contramap") {
             for {
               result <- requestUsingHttp(exampleRequest1)
             } yield assertTrue(result != exampleRequest1.url.asString)
-          }
+          } @@ ignore
       } +
       suite("combinations") {
         test("Http#defaultWith") {
@@ -568,41 +815,41 @@ object HttpSpec extends ZIOSpecDefault {
             result1 <- usOrUkHttp(Country.US)
             result2 <- usOrUkHttp(Country.UK)
           } yield assertTrue(result1.contains("US")) && assertTrue(result2.contains("UK"))
-        } +
+        } @@ ignore +
           test("Http#orElse") {
             for {
               result1 <- usOrUkHttp(Country.US)
               result2 <- usOrUkHttp(Country.UK)
             } yield assertTrue(result1.contains("US")) && assertTrue(result2.contains("UK"))
-          } +
+          } @@ ignore +
           test("Http#andThen") {
             for {
               result <- digitsInNumber(1234)
             } yield assertTrue(result == 4)
-          } +
+          } @@ ignore +
           test("Http#zipRight") {
             for {
               _    <- TestConsole.feedLines("Sherlock Holmes")
               name <- promptAndRead(())
             } yield assertTrue(name == "Sherlock Holmes")
-          } +
+          } @@ ignore +
           test("Http#race") {
             for {
               result <- neverOrRightAway(())
             } yield assertTrue(result == 42)
-          } +
+          } @@ ignore +
           test("Http#flatMap") {
             for {
               result1 <- dispatchExample("route1")
               result2 <- dispatchExample("route2")
             } yield assertTrue(result1 == "Handled by route1") &&
               assertTrue(result2 == "Handled by route2")
-          } +
+          } @@ ignore +
           test("Http#catchAll") {
             for {
               result <- httpRecovered(())
             } yield assertTrue(result == "I recovered")
-          }
+          } @@ ignore
       } +
       suite("routes") {
         suite("Path") {
@@ -610,41 +857,62 @@ object HttpSpec extends ZIOSpecDefault {
             val expected = !!
 
             assertTrue(rootPath == expected)
-          } +
+          } @@ ignore +
             test("composite") {
               val expected = !! / "Baker" / "221B"
 
               assertTrue(compositePath == expected)
-            } +
+            } @@ ignore +
             test("extracted") {
               assertTrue(extractedStreet == "Baker") &&
               assertTrue(extractedNumber == "221B")
-            }
+            } @@ ignore +
+            test("request") {
+              assertTrue(exampleRequestMatch == "It matches!")
+            } @@ ignore
         } +
-          suite("Http.collect") {
-            test("constructor") {
-              assertTrue(true)
-            }
-          } +
-          suite("Http.collectZIO") {
-            test("constructor") {
-              assertTrue(true)
-            }
-          } +
-          suite("Http.collectHttp") {
-            test("constructor") {
-              assertTrue(true)
-            }
+          suite("collectors") {
+            test("Http.collect") {
+              for {
+                response1 <- greetAndFarewell(req(!! / "greet"))
+                response2 <- greetAndFarewell(req(!! / "farewell"))
+              } yield assertTrue(response1 == Response.text("Hello there!")) &&
+                assertTrue(response2 == Response.text("Goodbye!"))
+            } @@ ignore +
+              test("Http.collectZIO") {
+                for {
+                  response1 <- lookupUserApp(req(!! / "users" / "sholmes"))
+                  response2 <- lookupUserApp(req(!! / "users" / "jwatson"))
+                } yield assertTrue(response1 == Response.text("Sherlock Holmes")) &&
+                  assertTrue(response2 == Response.text("John Watson"))
+              } @@ ignore +
+              test("Http.collectHttp") {
+                for {
+                  response1 <- exampleRouting(req(!! / "greet"))
+                  response2 <- exampleRouting(req(!! / "users" / "sholmes"))
+                } yield assertTrue(response1 == Response.text("Hello there!")) &&
+                  assertTrue(response2 == Response.text("Sherlock Holmes"))
+              } @@ ignore
           }
       } +
       suite("server") {
-        test("example") {
-          assertTrue(true)
-        }
+        test("start") {
+          assertTrue(helloWorldServer != null)
+        } @@ ignore
       } +
-      suite("challenges") {
-        test("example") {
-          assertTrue(true)
+      suite("graduation") {
+        test("end-to-end") {
+          val todo = TodoAppTester(todoApp)
+
+          (for {
+            initial <- todo.getAll
+            id      <- todo.create("Buy milk")
+            after   <- todo.getAll
+            _       <- todo.update(id, "Buy almond milk")
+            updated <- todo.getById(id)
+          } yield assertTrue(initial == Chunk.empty) &&
+            assertTrue(after(0).description == "Buy milk") &&
+            assertTrue(updated.get.description == "Buy almond milk")).provideCustomLayer(TodoRepo.testLayer)
         }
       }
   }

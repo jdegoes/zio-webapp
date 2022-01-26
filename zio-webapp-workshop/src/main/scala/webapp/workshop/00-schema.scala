@@ -22,6 +22,7 @@ package webapp.workshop
 
 import zio.schema._
 import zio.test._
+import zio.test.TestAspect.ignore
 
 object SchemaSpec extends ZIOSpecDefault {
   //
@@ -344,13 +345,13 @@ object SchemaSpec extends ZIOSpecDefault {
     suite("record capabilities") {
       test("field 1 extraction") {
         assertTrue(extractFirstField(Person.schema, Person("John", 42)) == "John")
-      } +
+      } @@ ignore +
         test("field 2 extraction") {
           assertTrue(extractSecondField(Person.schema, Person("John", 42)) == 42)
-        } +
+        } @@ ignore +
         test("construction") {
           assertTrue(construct2(Person.schema, "John", 42) == Person("John", 42))
-        }
+        } @@ ignore
     } +
       suite("enum capabilities") {
         test("case 1 extraction") {
@@ -359,59 +360,59 @@ object SchemaSpec extends ZIOSpecDefault {
               PaymentMethod.CreditCard("12345")
             )
           )
-        } +
+        } @@ ignore +
           test("case 1 extraction") {
             assertTrue(extractSecondCase(PaymentMethod.schema, PaymentMethod.CreditCard("12345")) == None)
-          } +
+          } @@ ignore +
           test("case 1 construction") {
             assertTrue(
               constructFirstCase(PaymentMethod.schema, PaymentMethod.CreditCard("12345")) == PaymentMethod.CreditCard(
                 "12345"
               )
             )
-          } +
+          } @@ ignore +
           test("case 2 construction") {
             assertTrue(
               constructSecondCase(PaymentMethod.schema, PaymentMethod.BankTransfer("12345")) == PaymentMethod
                 .BankTransfer("12345")
             )
-          }
+          } @@ ignore
       } +
       suite("manual creation") {
         test("int") {
           assertTrue(primitives.schemaInt == Schema[Int])
-        } +
+        } @@ ignore +
           test("string") {
             assertTrue(primitives.schemaString == Schema[String])
-          } +
+          } @@ ignore +
           test("duration") {
             assertTrue(primitives.schemaBoolean == Schema[Boolean])
-          } +
+          } @@ ignore +
           test("case class") {
             val point = Point(1, 2)
 
             assertTrue(extractFirstField(Point.schema, point) == 1) &&
             assertTrue(extractSecondField(Point.schema, point) == 2)
-          } +
+          } @@ ignore +
           test("enum") {
             val usd = Amount.USD(12, 5)
             val gbp = Amount.GBP(12, 5)
 
             assertTrue(extractFirstCase(Amount.schema, usd: Amount) == Some(usd)) &&
             assertTrue(extractFirstCase(Amount.schema, gbp: Amount) == None)
-          }
+          } @@ ignore
       } +
       suite("derivation") {
         test("record derivation") {
           val movieSchema = Schema[Movie]
 
           assertTrue(Movie.schema.extractField1(Movie.bladeRunner) == "Blade Runner")
-        } +
+        } @@ ignore +
           test("enum derivation") {
             val color = Color.Custom(1, 2, 3)
 
             assertTrue(Color.schema.case2.deconstruct(color) == Some(color))
-          }
+          } @@ ignore
       } +
       suite("operations") {
         test("transform") {
@@ -421,29 +422,29 @@ object SchemaSpec extends ZIOSpecDefault {
             Schema[UserId].toDynamic(userId) ==
               DynamicValue.Primitive("sholmes", StandardType.StringType)
           )
-        } +
+        } @@ ignore +
           test("transformOrFail") {
             val validEmail   = DynamicValue.Primitive("sherlock@holmes.com", StandardType.StringType)
             val invalidEmail = DynamicValue.Primitive("sherlock", StandardType.StringType)
 
             assertTrue(Schema[Email].fromDynamic(validEmail).isRight) &&
             assertTrue(Schema[Email].fromDynamic(invalidEmail).isLeft)
-          }
+          } @@ ignore
       } +
       suite("generic programming") {
         test("field names") {
           assertTrue(fieldNames(Movie.schema) == List("title", "stars", "director"))
-        } +
+        } @@ ignore +
           test("mask passwords") {
             val masked = maskPasswords(User.schema, User("John", "abc123"))
 
             assertTrue(masked == User("John", "******"))
-          } +
+          } @@ ignore +
           test("from CSV") {
             val john = fromCSV[Person](CSV.example, 0)
 
             assertTrue(john == Right(Person("John", 32)))
-          }
+          } @@ ignore
       } +
       suite("codecs") {
         test("protobuf") {
@@ -451,7 +452,7 @@ object SchemaSpec extends ZIOSpecDefault {
           import zio.schema.codec._
 
           assertTrue(movieDecoder(movieEncoder(Movie.bladeRunner)) == Right(Movie.bladeRunner))
-        }
+        } @@ ignore
       }
   }
 }
