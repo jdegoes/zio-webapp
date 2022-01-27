@@ -22,7 +22,52 @@ object ConfigSpec extends ZIOSpecDefault {
   // ConfigSource
 
   //
-  // SIMPLE CONSTRUCTORS
+  // CONFIGSOURCE CONSTRUCTORS
+  //
+
+  /**
+   * EXERCISE
+   *
+   * Using `ConfigSource.fromMap`, create a config source backed by a Scala map,
+   * which contains "name" and "age" properties, equal to "John" and "42",
+   * respectively.
+   */
+  lazy val configSourceMap: ConfigSource = TODO
+
+  /**
+   * EXERCISE
+   *
+   * Using `ConfigSource.fromPropertyTree`, create a config source backed by a
+   * `PropertyTree`.
+   */
+  lazy val configSourcePropertyTree: ConfigSource = TODO
+  lazy val propertyTree                           = PropertyTree.fromStringMap(Map("name" -> "John", "age" -> "42"), Some('.'), None)
+
+  //
+  // CONFIGSOURCE OPERATORS
+  //
+
+  /**
+   * EXERCISE
+   *
+   * Using `ConfigSource#<>`, create a config source that reads from either
+   * `configSourceMap` or `configSourcePropertyTree`.
+   */
+  lazy val configSourceMapOrPropertyTree: ConfigSource = TODO
+
+  /**
+   * EXERCISE
+   *
+   * Using `ConfigSource#at`, shift the following config source to the "prod"
+   * node.
+   */
+  lazy val configSourceAtProd: ConfigSource = nestedConfigSource.TODO
+  lazy val propertyTree2 =
+    PropertyTree.fromStringMap(Map("prod.port" -> "123", "prod.host" -> "localhost"), Some('.'), None)
+  lazy val nestedConfigSource = ConfigSource.fromPropertyTree(propertyTree2.head, "property-tree-2")
+
+  //
+  // SIMPLE CONFIGDESCRIPTOR CONSTRUCTORS
   //
 
   /**
@@ -42,7 +87,7 @@ object ConfigSpec extends ZIOSpecDefault {
   lazy val intAge: ConfigDescriptor[Int] = TODO
 
   //
-  // OPERATORS
+  // CONFIGDESCRIPTOR OPERATORS
   //
 
   /**
@@ -264,59 +309,79 @@ object ConfigSpec extends ZIOSpecDefault {
         value <- read(cd from ConfigSource.fromMap(pt, "test")).mapError(_.getMessage)
       } yield assertTrue(value == expected)
 
-    suite("constructors") {
-      test("string") {
-        assertReadFlat(stringName, Map("name" -> "Sherlock Holmes"), "Sherlock Holmes")
-      } @@ ignore +
-        test("int") {
-          assertReadFlat(intAge, Map("age" -> "42"), 42)
-        } @@ ignore
-    } +
-      suite("operators") {
-        test("optional") {
-          assertReadFlat(optionalInt, Map("port" -> "8080"), Some(8080))
-        } @@ ignore +
-          test("orElse") {
-            for {
-              assert1 <- assertReadFlat(passwordOrToken, Map("password" -> "secret"), "secret")
-              assert2 <- assertReadFlat(passwordOrToken, Map("token" -> "secret"), "secret")
-            } yield assert1 && assert2
-          } @@ ignore +
-          test("zip") {
-            assertReadFlat(nameZipAge, Map("name" -> "Sherlock Holmes", "age" -> "42"), ("Sherlock Holmes", 42))
-          } @@ ignore +
-          test("from") {
-            for {
-              person <- read(personFromMap)
-            } yield assertTrue(person == ("Sherlock Holmes", 42))
-          } @@ ignore
-      } + suite("adt construction") {
-        test("port") {
-          assertRoundtrip(Port(3306))
-        } @@ ignore +
-          test("database") {
-            assertRoundtrip(Database("localhost", 3306))
-          } @@ ignore +
-          test("PersistenceConfig") {
-            assertRoundtrip(PersistenceConfig(Database("localhost", 3306), Database("localhost", 3306)))
-          } @@ ignore
+    suite("ConfigSource") {
+      suite("constructors") {
+        test("fromMap") {
+          assertCompletes
+        } +
+          test("fromPropertyTree") {
+            assertCompletes
+          }
       } +
-      suite("derivation") {
-        test("sealed trait") {
-          assertRoundtrip[FeedSource](FeedSource.S3("bucket"))(feedSourceDerived)
-        } @@ ignore +
-          test("case class") {
-            assertRoundtrip(PersistenceConfig(Database("localhost", 3306), Database("localhost", 3306)))(
-              PersistenceConfigDerived
-            )
+        suite("operators") {
+          test("orElse") {
+            assertCompletes
+          } +
+            test("at") {
+              assertCompletes
+            }
+        }
+    } +
+      suite("ConfigDescriptor") {
+        suite("constructors") {
+          test("string") {
+            assertReadFlat(stringName, Map("name" -> "Sherlock Holmes"), "Sherlock Holmes")
           } @@ ignore +
-          test("annotations") {
-            assertReadFlat(
-              Database2.configDescriptor,
-              Map("user_name" -> "sherlock", "pwd" -> "holmes"),
-              Database2("sherlock", "holmes")
-            )
-          } @@ ignore
+            test("int") {
+              assertReadFlat(intAge, Map("age" -> "42"), 42)
+            } @@ ignore
+        } +
+          suite("operators") {
+            test("optional") {
+              assertReadFlat(optionalInt, Map("port" -> "8080"), Some(8080))
+            } @@ ignore +
+              test("orElse") {
+                for {
+                  assert1 <- assertReadFlat(passwordOrToken, Map("password" -> "secret"), "secret")
+                  assert2 <- assertReadFlat(passwordOrToken, Map("token" -> "secret"), "secret")
+                } yield assert1 && assert2
+              } @@ ignore +
+              test("zip") {
+                assertReadFlat(nameZipAge, Map("name" -> "Sherlock Holmes", "age" -> "42"), ("Sherlock Holmes", 42))
+              } @@ ignore +
+              test("from") {
+                for {
+                  person <- read(personFromMap)
+                } yield assertTrue(person == ("Sherlock Holmes", 42))
+              } @@ ignore
+          } + suite("adt construction") {
+            test("port") {
+              assertRoundtrip(Port(3306))
+            } @@ ignore +
+              test("database") {
+                assertRoundtrip(Database("localhost", 3306))
+              } @@ ignore +
+              test("PersistenceConfig") {
+                assertRoundtrip(PersistenceConfig(Database("localhost", 3306), Database("localhost", 3306)))
+              } @@ ignore
+          } +
+          suite("derivation") {
+            test("sealed trait") {
+              assertRoundtrip[FeedSource](FeedSource.S3("bucket"))(feedSourceDerived)
+            } @@ ignore +
+              test("case class") {
+                assertRoundtrip(PersistenceConfig(Database("localhost", 3306), Database("localhost", 3306)))(
+                  PersistenceConfigDerived
+                )
+              } @@ ignore +
+              test("annotations") {
+                assertReadFlat(
+                  Database2.configDescriptor,
+                  Map("user_name" -> "sherlock", "pwd" -> "holmes"),
+                  Database2("sherlock", "holmes")
+                )
+              } @@ ignore
+          }
       } +
       suite("features") {
         test("read") {

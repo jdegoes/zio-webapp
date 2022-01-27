@@ -8,6 +8,7 @@ import zio.test._
 import zio.test.TestAspect._
 import zhttp.http._
 import zhttp.http.middleware.HttpMiddleware
+import zhttp.http.middleware.Cors
 
 object MiddlewareSpec extends ZIOSpecDefault {
 
@@ -113,10 +114,10 @@ object MiddlewareSpec extends ZIOSpecDefault {
    * definition of Http functions that do not work directly on Request/Response,
    * but rather some user-defined data t ypes.
    */
-  def codecMiddleware[In: JsonDecoder, Out: JsonEncoder]: Middleware[Any, String, In, Out, Request, Response] =
+  def json[In: JsonDecoder, Out: JsonEncoder]: Middleware[Any, Nothing, In, Out, Request, Response] =
     Middleware.codecZIO[Request, Out](
-      request => TODO: ZIO[Any, String, In],
-      response => TODO: ZIO[Any, String, Response]
+      request => TODO: ZIO[Any, Nothing, In],
+      response => TODO: ZIO[Any, Nothing, Response]
     )
 
   //
@@ -133,7 +134,7 @@ object MiddlewareSpec extends ZIOSpecDefault {
     case UsersRequest.Create(name, email) => UsersResponse.Created(User(name, email, "abc123"))
     case UsersRequest.Get(id)             => UsersResponse.Got(User(id.toString, "", ""))
   }
-  lazy val usersServiceHttpApp: HttpApp[Any, String] = TODO
+  lazy val usersServiceHttpApp: HttpApp[Any, Nothing] = TODO
 
   /**
    * EXERCISE
@@ -160,18 +161,48 @@ object MiddlewareSpec extends ZIOSpecDefault {
   /**
    * EXERCISE
    *
-   * Create middleware that logs requests using `ZIO.log*` family of functions.
-   * For bonus points, integrate with ZIO Logging's LogFormat.
+   * Using `Middleware.interceptZIO`, create middleware that logs requests using
+   * `ZIO.log*` family of functions. For bonus points, expose a few LogFormat
+   * values backed by LogAnnotations populated by the middleware.
    */
-  lazy val requestLogger: HttpMiddleware[Any, Nothing] = ???
+  lazy val requestLogger: HttpMiddleware[Any, Nothing] =
+    Middleware.TODO
 
   /**
    * EXERCISE
    *
-   * Create middleware that logs responses using `ZIO.log*` family of functions.
-   * For bonus points, integrate with ZIO Logging's LogFormat.
+   * Using `Middleware.interceptZIO`, create middleware that logs responses
+   * using `ZIO.log*` family of functions.
    */
-  lazy val responseLogger: HttpMiddleware[Any, Nothing] = ???
+  lazy val responseLogger: HttpMiddleware[Any, Nothing] = TODO
+
+  import zio.logging._
+
+  /**
+   * EXERCISE
+   *
+   * Using `Middleware.interceptZIO`, create middleware that will populate the
+   * `zio.logging.LogContext` with the specified annotation (if it can be
+   * obtained from the request headers), and then which will attach response
+   * headers backed by the annotation value.
+   */
+  def logged[A](
+    logAnn: LogAnnotation[A],
+    proj: Headers => Option[A],
+    unproj: A => Headers
+  ): HttpMiddleware[Any, Nothing] =
+    Middleware.interceptZIO.TODO
+
+  /**
+   * EXERCISE
+   *
+   * Using the `logged` constructor above, construct middleware that will
+   * extract the `X-Trace-Id` header, parse it as a UUID, store it in the
+   * `LogAnnotation.TraceId` log annotation, and then propagate it back to the
+   * response as a `X-Trace-Id` header.
+   */
+  lazy val traceId: HttpMiddleware[Any, Nothing] =
+    TODO
 
   def spec = suite("MiddlewareSpec") {
     suite("constructors") {
@@ -201,7 +232,7 @@ object MiddlewareSpec extends ZIOSpecDefault {
             case UsersRequest.Create(name, email) => UsersResponse.Created(User(name, email, "abc123"))
             case UsersRequest.Get(id)             => UsersResponse.Got(User(id.toString, "", ""))
           }
-          val http2 = http @@ codecMiddleware[UsersRequest, UsersResponse]
+          val http2 = http @@ json[UsersRequest, UsersResponse]
 
           assertTrue(http2 != null)
         } @@ ignore
