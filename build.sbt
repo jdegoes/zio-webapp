@@ -43,6 +43,7 @@ lazy val commonDeps = libraryDependencies ++= Seq(
   "dev.zio" %% "zio-schema-derivation" % ZioSchemaVersion,
   "dev.zio" %% "zio-schema-protobuf"   % ZioSchemaVersion,
   "dev.zio" %% "zio-logging"           % ZioLoggingVersion,
+  "dev.zio" %% "zio-logging-slf4j"     % ZioLoggingVersion,
   "io.d11"  %% "zhttp-test"            % ZioHttpVersion % Test,
   "dev.zio" %% "zio-test"              % ZioVersion     % Test,
   "dev.zio" %% "zio-test-sbt"          % ZioVersion     % Test
