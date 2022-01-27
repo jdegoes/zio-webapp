@@ -3,12 +3,40 @@ package webapp.workshop
 import java.io.IOException
 
 import zio._
+import zio.json._
 import zio.test._
 import zio.test.TestAspect._
 import zhttp.http._
 import zhttp.http.middleware.HttpMiddleware
 
 object MiddlewareSpec extends ZIOSpecDefault {
+
+  final case class User(name: String, email: String, id: String)
+  object User {
+    implicit val codec: JsonCodec[User] = DeriveJsonCodec.gen[User]
+  }
+  sealed trait UsersRequest
+  object UsersRequest {
+    final case class Get(id: Int)                        extends UsersRequest
+    final case class Create(name: String, email: String) extends UsersRequest
+
+    implicit val codec: JsonCodec[UsersRequest] = DeriveJsonCodec.gen[UsersRequest]
+  }
+  sealed trait UsersResponse
+  object UsersResponse {
+    final case class Got(user: User)     extends UsersResponse
+    final case class Created(user: User) extends UsersResponse
+
+    implicit val codec: JsonCodec[UsersResponse] = DeriveJsonCodec.gen[UsersResponse]
+  }
+
+  //
+  // TOUR
+  //
+  val helloWorld =
+    Http.collect[Request] { case Method.GET -> !! / "greet" =>
+      Response.text("Hello World!")
+    } @@ Middleware.debug
 
   //
   // TYPES
@@ -77,9 +105,35 @@ object MiddlewareSpec extends ZIOSpecDefault {
    */
   lazy val authMiddleware: HttpMiddleware[Any, Nothing] = TODO
 
+  /**
+   * EXERCISE
+   *
+   * Using `Middleware.codecZIO`, create a middleware that can decode JSON into
+   * some type `In`, and encode some type `Out` into JSON, allowing the
+   * definition of Http functions that do not work directly on Request/Response,
+   * but rather some user-defined data t ypes.
+   */
+  def codecMiddleware[In: JsonDecoder, Out: JsonEncoder]: Middleware[Any, String, In, Out, Request, Response] =
+    Middleware.codecZIO[Request, Out](
+      request => TODO: ZIO[Any, String, In],
+      response => TODO: ZIO[Any, String, Response]
+    )
+
   //
   // OPERATORS
   //
+
+  /**
+   * EXERCISE
+   *
+   * Using `Http.@@`, apply the `codecMiddleware` to transform the following
+   * `Http` into an `HttpApp`.
+   */
+  val usersService: Http[Any, Nothing, UsersRequest, UsersResponse] = Http.collect {
+    case UsersRequest.Create(name, email) => UsersResponse.Created(User(name, email, "abc123"))
+    case UsersRequest.Get(id)             => UsersResponse.Got(User(id.toString, "", ""))
+  }
+  lazy val usersServiceHttpApp: HttpApp[Any, String] = TODO
 
   /**
    * EXERCISE
@@ -141,12 +195,24 @@ object MiddlewareSpec extends ZIOSpecDefault {
         } @@ ignore +
         test("basicAuth") {
           assertTrue(authMiddleware != null)
+        } @@ ignore +
+        test("codec") {
+          val http: Http[Any, Nothing, UsersRequest, UsersResponse] = Http.collect {
+            case UsersRequest.Create(name, email) => UsersResponse.Created(User(name, email, "abc123"))
+            case UsersRequest.Get(id)             => UsersResponse.Got(User(id.toString, "", ""))
+          }
+          val http2 = http @@ codecMiddleware[UsersRequest, UsersResponse]
+
+          assertTrue(http2 != null)
         } @@ ignore
     } +
       suite("operators") {
-        test("Middleware.andThen") {
-          assertTrue(beforeAfterAndAuth1 != null)
+        test("Http.@@") {
+          assertTrue(usersService != null)
         } @@ ignore +
+          test("Middleware.andThen") {
+            assertTrue(beforeAfterAndAuth1 != null)
+          } @@ ignore +
           test("Middleware.combine") {
             assertTrue(beforeAfterAndAuth2 != null)
           } @@ ignore
