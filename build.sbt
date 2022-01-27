@@ -4,6 +4,7 @@ val ZioHttpVersion    = "2.0.0-RC2"
 val ZioConfigVersion  = "3.0.0-RC1"
 val ZioSchemaVersion  = "0.2.0-RC1-1"
 val ZioLoggingVersion = "2.0.0-RC4"
+val ZioZmxVersion     = "2.0.0-M1"
 
 ThisBuild / organization := "dev.zio"
 ThisBuild / version      := "0.1.0"
