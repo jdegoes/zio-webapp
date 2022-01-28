@@ -136,7 +136,7 @@ object Deploy {
    *   - NEVER store or process user passwords (salt + hash, etc.)
    *   - Mandate SSL for all HTTP connections
    *   - Study Cross Site Request Forgery (CSRF) attacks
-   *   - Enscure "secrets"" are stored appropriately
+   *   - Enscure "secrets" are stored appropriately
    *   - Protect against SQL injection, JSON exploits, etc.
    *
    * Consider using ZIO Quill, ZIO SQL, for protection against SQL injection,
