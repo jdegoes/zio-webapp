@@ -1,3 +1,19 @@
+/**
+ * CONFIGURATION
+ *
+ * Application configuration starts out simple enough, often with hard-coded
+ * data inside an application, and then rapidly cascades out of control as more
+ * demands are placed on the need to change, validation, generate, and source
+ * application configuration data.
+ *
+ * The challenges are even more prominent for cloud-native web applications,
+ * which have to have a greater degree of flexibility given the environments
+ * they are hosted in and the demands of connecting to and communicating with
+ * external cloud services.
+ *
+ * In this section, you will learn how ZIO Config provides a comprehensive
+ * approach to application configuration management.
+ */
 package webapp.workshop
 
 import zio._

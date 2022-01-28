@@ -1,3 +1,15 @@
+/**
+ * MIDDLEWARE
+ *
+ * ZIO HTTP provides a very powerful, compositional approach to building web
+ * applications using ZIO. In order to eliminate boilerplate and increase
+ * modularity, the library provides compositional, type-safe _middleware_, which
+ * can be used to provide certain features uniformly across parts or all of your
+ * web application endpoints.
+ *
+ * In this section, you will learn about common middleware that is built into
+ * ZIO HTTP, and how to create your own custom middleware.
+ */
 package webapp.workshop
 
 import java.io.IOException
