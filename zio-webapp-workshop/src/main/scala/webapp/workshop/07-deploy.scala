@@ -72,7 +72,7 @@ object Deploy {
    * pronged approach to configuration:
    *
    *   - Bootstrap configuration - tells app where to find primary config
-   *   - Primary configuration - broken down into general & confidentail
+   *   - Primary configuration - broken down into general & confidential
    *
    * Primary configuration should take advantage of host support for
    * configuration:
@@ -82,7 +82,7 @@ object Deploy {
    *
    * Authentication configuration, private keys, TLS certificates & keys, etc.,
    * should never be stored with the rest of application configuration. Instead,
-   * sensitive detaisl should be isolated and protected using:
+   * sensitive details should be isolated and protected using:
    *
    *   - Docker secrets
    *   - Kubernetes secrets
