@@ -721,8 +721,12 @@ object HttpSpec extends ZIOSpecDefault {
                 url = URL.fromString("http://ziowebapp.com/greet").toOption.get,
                 data = HttpData.fromString("Hello World!")
               )
-
-              assertTrue(exampleRequest1 == expected)
+              exampleRequest1.getBodyAsString.zip(expected.getBodyAsString).map { case (exampleBody, expectedBody) =>
+                assertTrue(exampleRequest1.method == expected.method) &&
+                  assertTrue(exampleRequest1.url == expected.url) &&
+                  assertTrue(exampleRequest1.getHeaders == expected.getHeaders) &&
+                  assertTrue(exampleBody == expectedBody)
+              }
             } @@ ignore +
               test("Response") {
                 val expected =
@@ -732,24 +736,29 @@ object HttpSpec extends ZIOSpecDefault {
               } @@ ignore +
               test("Http.ok") {
                 for {
-                  result <- httpOk(exampleRequest1)
+                  result <- httpOk(Request())
                 } yield assertTrue(result.status == Status.OK)
               } @@ ignore +
               test("Http.notFound") {
                 for {
-                  result <- httpOk(exampleRequest1)
+                  result <- httpNotFound(Request())
                 } yield assertTrue(result.status == Status.NOT_FOUND)
               } @@ ignore +
               test("Http.badRequest") {
                 for {
-                  result <- httpOk(exampleRequest1)
-                } yield assertTrue(result.status == Status.BAD_REQUEST)
+                  result          <- httpBadRequest("bad request")(Request())
+                  responseByteBuf <- result.data.toByteBuf
+                  responseText     = responseByteBuf.toString(HTTP_CHARSET)
+                } yield {
+                  assertTrue(result.status == Status.BAD_REQUEST) &&
+                  assertTrue(responseText == "bad request")
+                }
               } @@ ignore +
               test("Http.error") {
                 val error = HttpError.InternalServerError("boom")
 
                 for {
-                  result <- httpError(error)(exampleRequest1)
+                  result <- httpError(error)(Request())
                 } yield assertTrue(result.status == error.status)
               } @@ ignore +
               test("Http.fromData") {
@@ -775,12 +784,13 @@ object HttpSpec extends ZIOSpecDefault {
                 assertTrue(actual == expected)
               } @@ ignore +
               test("Http.responseZIO") {
-                val zio = ZIO.succeed(exampleResponse1)
-
-                val actual   = httpFromResponseZIO(zio)
-                val expected = Http.responseZIO(zio)
-
-                assertTrue(actual == expected)
+                val zio = ZIO.succeed(Response())
+                for {
+                  actual   <- httpFromResponseZIO(zio)(Request())
+                  expected <- Http.responseZIO(zio)(Request())
+                } yield {
+                  assertTrue(actual == expected)
+                }
               } @@ ignore
           }
       } +
@@ -806,7 +816,7 @@ object HttpSpec extends ZIOSpecDefault {
           test("Http#contramap") {
             for {
               result <- requestUsingHttp(exampleRequest1)
-            } yield assertTrue(result != exampleRequest1.url.asString)
+            } yield assertTrue(result == exampleRequest1.url.asString)
           } @@ ignore
       } +
       suite("combinations") {
