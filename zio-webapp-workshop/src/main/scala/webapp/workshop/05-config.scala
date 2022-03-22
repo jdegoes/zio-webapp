@@ -21,14 +21,11 @@ import zio.json._
 
 import zhttp.http.{int => _, _}
 
-import zio.test._
-import zio.test.TestAspect.ignore
-
 import zio.config._
 import zio.config.ConfigDescriptor._
 import zio.config.magnolia._
 
-object ConfigSpec extends ZIOSpecDefault {
+object ConfigSection {
   //
   // TYPES
   //
@@ -310,120 +307,4 @@ object ConfigSpec extends ZIOSpecDefault {
         user <- ZIO.serviceWithZIO[UserRepo](_.lookupUserById(id))
       } yield Response.json(user.toJson)
     }
-
-  def spec = suite("ConfigSpec") {
-    def assertRoundtrip[A: ConfigDescriptor](a: A): IO[String, Assert] = {
-      val cd = implicitly[ConfigDescriptor[A]]
-
-      for {
-        written <- ZIO.fromEither(write(cd, a))
-        reread  <- read(cd from ConfigSource.fromPropertyTree(written, "test")).mapError(_.getMessage)
-      } yield assertTrue(reread == a)
-    }
-    def assertReadFlat[A](cd: ConfigDescriptor[A], pt: Map[String, String], expected: A) =
-      for {
-        value <- read(cd from ConfigSource.fromMap(pt, "test")).mapError(_.getMessage)
-      } yield assertTrue(value == expected)
-
-    suite("ConfigSource") {
-      suite("constructors") {
-        test("fromMap") {
-          assertCompletes
-        } +
-          test("fromPropertyTree") {
-            assertCompletes
-          }
-      } +
-        suite("operators") {
-          test("orElse") {
-            assertCompletes
-          } +
-            test("at") {
-              assertCompletes
-            }
-        }
-    } +
-      suite("ConfigDescriptor") {
-        suite("constructors") {
-          test("string") {
-            assertReadFlat(stringName, Map("name" -> "Sherlock Holmes"), "Sherlock Holmes")
-          } @@ ignore +
-            test("int") {
-              assertReadFlat(intAge, Map("age" -> "42"), 42)
-            } @@ ignore
-        } +
-          suite("operators") {
-            test("optional") {
-              assertReadFlat(optionalInt, Map("port" -> "8080"), Some(8080))
-            } @@ ignore +
-              test("orElse") {
-                for {
-                  assert1 <- assertReadFlat(passwordOrToken, Map("password" -> "secret"), "secret")
-                  assert2 <- assertReadFlat(passwordOrToken, Map("token" -> "secret"), "secret")
-                } yield assert1 && assert2
-              } @@ ignore +
-              test("zip") {
-                assertReadFlat(nameZipAge, Map("name" -> "Sherlock Holmes", "age" -> "42"), ("Sherlock Holmes", 42))
-              } @@ ignore +
-              test("from") {
-                for {
-                  person <- read(personFromMap)
-                } yield assertTrue(person == ("Sherlock Holmes", 42))
-              } @@ ignore
-          } + suite("adt construction") {
-            test("port") {
-              assertRoundtrip(Port(3306))
-            } @@ ignore +
-              test("database") {
-                assertRoundtrip(Database("localhost", 3306))
-              } @@ ignore +
-              test("PersistenceConfig") {
-                assertRoundtrip(PersistenceConfig(Database("localhost", 3306), Database("localhost", 3306)))
-              } @@ ignore
-          } +
-          suite("derivation") {
-            test("sealed trait") {
-              assertRoundtrip[FeedSource](FeedSource.S3("bucket"))(feedSourceDerived)
-            } @@ ignore +
-              test("case class") {
-                assertRoundtrip(PersistenceConfig(Database("localhost", 3306), Database("localhost", 3306)))(
-                  PersistenceConfigDerived
-                )
-              } @@ ignore +
-              test("annotations") {
-                assertReadFlat(
-                  Database2.configDescriptor,
-                  Map("user_name" -> "sherlock", "pwd" -> "holmes"),
-                  Database2("sherlock", "holmes")
-                )
-              } @@ ignore
-          }
-      } +
-      suite("features") {
-        test("read") {
-          for {
-            person <- readPerson
-          } yield assertTrue(person == ("Sherlock Holmes", 42))
-        } @@ ignore +
-          test("write") {
-            for {
-              expected <- ZIO.fromEither(write(personFromMap, ("John Watson", 46)))
-              actual   <- ZIO.fromEither(writePerson)
-            } yield assertTrue(actual == expected)
-          } @@ ignore +
-          test("generateDocs") {
-            assertTrue(docPersistenceConfig == generateDocs(PersistenceConfig.configDescriptor))
-          } @@ ignore +
-          test("generateReport") {
-            val expected = generateReport(personFromMap, ("John Watson", 46))
-
-            assertTrue(reportOfPersonFromMap == expected)
-          } @@ ignore
-      } +
-      suite("graduation") {
-        test("end-to-end") {
-          assertTrue(UsersApp.run != null)
-        } @@ ignore
-      }
-  }
 }

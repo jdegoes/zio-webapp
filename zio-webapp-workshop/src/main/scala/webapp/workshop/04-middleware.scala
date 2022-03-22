@@ -16,13 +16,10 @@ import java.io.IOException
 
 import zio._
 import zio.json._
-import zio.test._
-import zio.test.TestAspect._
 import zhttp.http._
 import zhttp.http.middleware.HttpMiddleware
-import zhttp.http.middleware.Cors
 
-object MiddlewareSpec extends ZIOSpecDefault {
+object MiddlewareSection {
 
   final case class User(name: String, email: String, id: String)
   object User {
@@ -215,58 +212,4 @@ object MiddlewareSpec extends ZIOSpecDefault {
    */
   lazy val traceId: HttpMiddleware[Any, Nothing] =
     TODO
-
-  def spec = suite("MiddlewareSpec") {
-    suite("constructors") {
-      test("cors") {
-        assertTrue(corsMiddleware != null)
-      } @@ ignore +
-        test("debug") {
-          assertTrue(debugMiddleware != null)
-        } @@ ignore +
-        test("cookie") {
-          assertTrue(cookieMiddleware != null)
-        } @@ ignore +
-        test("timeout") {
-          assertTrue(timeoutMiddleware != null)
-        } @@ ignore +
-        test("runBefore") {
-          assertTrue(beforeMiddleware != null)
-        } @@ ignore +
-        test("runAfter") {
-          assertTrue(afterMiddleware != null)
-        } @@ ignore +
-        test("basicAuth") {
-          assertTrue(authMiddleware != null)
-        } @@ ignore +
-        test("codec") {
-          val http: Http[Any, Nothing, UsersRequest, UsersResponse] = Http.collect {
-            case UsersRequest.Create(name, email) => UsersResponse.Created(User(name, email, "abc123"))
-            case UsersRequest.Get(id)             => UsersResponse.Got(User(id.toString, "", ""))
-          }
-          val http2 = http @@ json[UsersRequest, UsersResponse]
-
-          assertTrue(http2 != null)
-        } @@ ignore
-    } +
-      suite("operators") {
-        test("Http.@@") {
-          assertTrue(usersService != null)
-        } @@ ignore +
-          test("Middleware.andThen") {
-            assertTrue(beforeAfterAndAuth1 != null)
-          } @@ ignore +
-          test("Middleware.combine") {
-            assertTrue(beforeAfterAndAuth2 != null)
-          } @@ ignore
-      } +
-      suite("graduation") {
-        test("requestLogger") {
-          assertTrue(requestLogger != null)
-        } @@ ignore +
-          test("responseLogger") {
-            assertTrue(responseLogger != null)
-          } @@ ignore
-      }
-  }
 }

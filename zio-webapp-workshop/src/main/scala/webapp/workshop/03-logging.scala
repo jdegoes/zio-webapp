@@ -20,11 +20,9 @@
 package webapp.workshop
 
 import zio._
-import zio.test._
-import zio.test.TestAspect._
 import zio.logging._
 
-object LoggingSpec extends ZIOSpecDefault {
+object LoggingSection {
   val logOutput: Ref[Chunk[String]] = Runtime.default.unsafeRun(Ref.make(Chunk.empty))
 
   def appendLogMessage(s: String): Unit =
@@ -160,78 +158,4 @@ object LoggingSpec extends ZIOSpecDefault {
       runtimeConfig <- ZIO.runtimeConfig
       _             <- ZIO.log("Hello World!")
     } yield ()).TODO
-
-  def spec = suite("LoggingSpec") {
-    def assertLogged(log: UIO[Any])(substrings: String*) =
-      for {
-        _      <- log
-        output <- logOutput.get
-      } yield assertTrue(substrings.forall(substring => output.exists(_.contains(substring))))
-
-    def assertNotLogged(log: UIO[Any])(substrings: String*) =
-      for {
-        _      <- log
-        output <- logOutput.get
-      } yield assertTrue(!substrings.exists(substring => output.exists(_.contains(substring))))
-
-    def assertLoggedWith(log: UIO[Any], format: LogFormat)(substrings: String*) =
-      ZIO.runtimeConfig.flatMap { runtimeConfig =>
-        val stringLogger = format.toLogger.map(line => appendLogMessage(line))
-        val causeLogger  = stringLogger.contramap[Cause[Any]](_.prettyPrint)
-
-        val loggerSet = stringLogger.toSet[String] ++ causeLogger.toSet[Cause[Any]]
-
-        (for {
-          _      <- log
-          output <- logOutput.get
-        } yield assertTrue(substrings.forall(substring => output.exists(_.contains(substring)))))
-          .withRuntimeConfig(runtimeConfig.copy(loggers = loggerSet))
-      }
-
-    suite("RuntimeConfig") {
-      test("log formatter") {
-        val message = "All work and no play makes jack a dull boy"
-        val output  = testStringLogFormatter.test(message)
-
-        assertTrue(output.contains(message)) &&
-        assertTrue(output.contains("INFO"))
-      } @@ ignore +
-        test("backend") {
-          val message = "All work and no play makes jack a dull boy"
-
-          assertLogged(ZIO.logInfo(message))(message)
-        } @@ ignore
-    } +
-      suite("logging methods") {
-        test("logInfo") {
-          assertLogged(coffeeLogInfo)("coffee", "INFO")
-        } @@ ignore +
-          test("logDebug") {
-            assertLogged(teaLogDebug)("tea", "DEBUG")
-          } @@ ignore +
-          test("logError") {
-            assertLogged(milkLogError)("milk", "ERROR")
-          } @@ ignore +
-          test("log") {
-            assertLogged(curryLog)("curry", "INFO")
-          } @@ ignore +
-          test("LogLevel.DEBUG") {
-            assertLogged(logLevelDebug)("DEBUG")
-          } @@ ignore +
-          test("LogLevel.ERROR") {
-            assertLogged(logLevelError)("ERROR")
-          } @@ ignore +
-          test("logSpan") {
-            assertLogged(queryingDatabase)("database-query", "INFO")
-          } @@ ignore
-      } +
-      suite("ZIO Logging") {
-        test("LogFormat") {
-          assertLoggedWith(ZIO.log("Testing"), myLogFormat)("Testing", "INFO")
-        } @@ ignore +
-          test("console") {
-            assertNotLogged(testEffect)("Hello World!")
-          } @@ ignore
-      }
-  } @@ sequential @@ runtimeConfig(testLoggerAspect) @@ after(logOutput.set(Chunk.empty))
 }

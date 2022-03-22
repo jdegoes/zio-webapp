@@ -1,6 +1,6 @@
 package webapp.workshop
 
-object Graduation {
+object GraduationSection {
 
   /**
    * EXERCISE

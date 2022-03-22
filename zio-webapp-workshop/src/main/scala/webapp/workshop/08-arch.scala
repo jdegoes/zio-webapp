@@ -16,7 +16,7 @@ package webapp.workshop
 import zio._
 import zhttp.http._
 
-object Arch {
+object ArchSection {
   //
   // BACKGROUND
   //
