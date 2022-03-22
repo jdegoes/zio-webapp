@@ -420,12 +420,13 @@ object SchemaSpec extends ZIOSpecDefault {
 
           assertTrue(
             Schema[UserId].toDynamic(userId) ==
-              DynamicValue.Primitive("sholmes", StandardType.StringType)
+              DynamicValue.Transform(DynamicValue.Primitive("sholmes", StandardType.StringType))
           )
         } @@ ignore +
           test("transformOrFail") {
-            val validEmail   = DynamicValue.Primitive("sherlock@holmes.com", StandardType.StringType)
-            val invalidEmail = DynamicValue.Primitive("sherlock", StandardType.StringType)
+            val validEmail =
+              DynamicValue.Transform(DynamicValue.Primitive("sherlock@holmes.com", StandardType.StringType))
+            val invalidEmail = DynamicValue.Transform(DynamicValue.Primitive("sherlock", StandardType.StringType))
 
             assertTrue(Schema[Email].fromDynamic(validEmail).isRight) &&
             assertTrue(Schema[Email].fromDynamic(invalidEmail).isLeft)
