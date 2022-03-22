@@ -10,6 +10,25 @@ A starter seed for ZIO 2.0 web applications, together with workshop material for
 
 You can find the workshop in the `zio-webapp-workshop` directory, and the starter project in the `zio-webapp-core` directory.
 
+# Testing
+
+Start an `sbt` shell and switch to the `workshop` project using  
+```
+project workshop
+```
+Run all tests using
+```
+test
+```
+or all tests in a particular test spec using e.g.
+```
+testOnly webapp.workshop.SchemaSpec
+```
+or all test suites with a particular name using
+```
+testOnly webapp.workshop.SchemaSpec -- -t "record capabilities"
+```
+
 # Documentation
 
 [zio-webapp Microsite](https://zio.github.io/zio-webapp/)
