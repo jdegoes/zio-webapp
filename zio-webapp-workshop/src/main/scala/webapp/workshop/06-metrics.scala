@@ -21,13 +21,10 @@
 package webapp.workshop
 
 import zio._
-import zio.test._
-import zio.test.TestAspect.ignore
 
-import zhttp.http._
 import zhttp.http.middleware._
 
-object MetricsSpec extends ZIOSpecDefault {
+object MetricsSection {
 
   /**
    * EXERCISE
@@ -124,40 +121,4 @@ object MetricsSpec extends ZIOSpecDefault {
    * dumps out the metrics as JSON.
    */
   lazy val metricsMiddleware: HttpMiddleware[Any, Nothing] = TODO
-
-  def spec = suite("MetricsSpec") {
-    suite("metrics construction") {
-      test("web requests") {
-        assertTrue(webRequestsCounter != null)
-      } @@ ignore +
-        test("request durations") {
-          assertTrue(requestDurations != null)
-        } @@ ignore +
-        test("database connections") {
-          assertTrue(databaseConnectionGauge != null)
-        } @@ ignore +
-        test("requests durations summary") {
-          assertTrue(requestDurationsSummary != null)
-        } @@ ignore +
-        test("http response status codes") {
-          assertTrue(httpResponseStatusCodes != null)
-        } @@ ignore
-    } +
-      suite("metrics usage") {
-        test("web requests") {
-          assertTrue(webRequestsMiddleware != null)
-        } @@ ignore +
-          test("request durations") {
-            assertTrue(requestsDurationsMiddleware != null)
-          } @@ ignore +
-          test("http response status codes") {
-            assertTrue(httpResponseStatusCodesMiddleware != null)
-          } @@ ignore
-      } +
-      suite("graduation") {
-        test("end-to-end") {
-          assertTrue(metricsMiddleware != null)
-        } @@ ignore
-      }
-  }
 }

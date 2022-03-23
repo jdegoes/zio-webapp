@@ -15,9 +15,7 @@
  */
 package webapp.workshop
 
-import zio.test._
-
-object Deploy {
+object DeploySection {
 
   /**
    *   1. CONTAINERS

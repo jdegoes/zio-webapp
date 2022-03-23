@@ -16,14 +16,11 @@
 package webapp.workshop
 
 import zio._
-import zio.test._
-import zio.test.TestAspect.ignore
 
-import scalikejdbc._
 import zio.schema.Schema
 import zio.schema.DeriveSchema
 
-object PersistenceSpec extends ZIOSpecDefault {
+object PersistenceSection {
   import scalikejdbc._
 
   final case class DatabaseConfig(driverClass: String, url: String, user: String, password: String)
@@ -291,21 +288,4 @@ object PersistenceSpec extends ZIOSpecDefault {
 
   def insertOneFrom[A: Schema](table: String, a: => A): RIO[ZConnectionPool, Int] =
     insertAllFrom(table, List(a))
-
-  val testPersistenceLayer: ZLayer[Any, TestFailure[Nothing], ZConnectionPool] =
-    (ZLayer.succeed(DatabaseConfig.test) >>> ZConnectionPool.live).mapError(TestFailure.die(_))
-
-  def spec = suite("PersistenceSpec") {
-    suite("tour") {
-      test("end-to-end") {
-        (for {
-          _ <- executedCreateTable
-          _ <- insertedDetectives
-          _ <- queriedDetectives
-          _ <- updatedDetectives
-          _ <- deletedJimRockford
-        } yield assertCompletes)
-      }
-    }
-  }.provideCustomLayer(testPersistenceLayer)
 }

@@ -69,7 +69,7 @@ lazy val workshop = (project in file("zio-webapp-workshop"))
     name := "zio-webapp-workshop",
     commonDeps,
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio-test"     % ZioVersion,
+      "dev.zio" %% "zio-test"     % ZioVersion % Test,
       "dev.zio" %% "zio-test-sbt" % ZioVersion % Test
     ),
     testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework"))
