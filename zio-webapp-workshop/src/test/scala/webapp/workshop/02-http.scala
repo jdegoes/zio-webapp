@@ -89,7 +89,7 @@ object HttpSpec extends DefaultRunnableSpec {
           } +
           test("zio") {
             def test[R, E, A] =
-              implicitly[HttpZIO[R, E, A] <:< Http[R, E, String, A]]
+              implicitly[HttpZIO[R, E, A] <:< Http[R, E, Nothing, A]]
 
             assertCompletes
           } +
@@ -285,7 +285,7 @@ object HttpSpec extends DefaultRunnableSpec {
           test("Http#catchAll") {
             for {
               result <- httpRecovered(())
-            } yield assertTrue(result == "I recovered")
+            } yield assertTrue(result == "I succeeded")
           }
       } +
       suite("routes") {

@@ -33,6 +33,7 @@ scalacOptions in ThisBuild ++= Seq("-deprecation", "-feature")
 lazy val root = project
   .in(file("."))
   .settings(
+    name           := "zio-webapp",
     publish / skip := true,
     console        := (core / Compile / console).value
   )
