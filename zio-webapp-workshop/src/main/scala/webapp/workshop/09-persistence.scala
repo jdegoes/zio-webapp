@@ -16,84 +16,12 @@
 package webapp.workshop
 
 import zio._
+import zio.jdbc._
 
 import zio.schema.Schema
 import zio.schema.DeriveSchema
 
 object PersistenceSection {
-  import scalikejdbc._
-
-  final case class DatabaseConfig(driverClass: String, url: String, user: String, password: String)
-  object DatabaseConfig {
-    val test =
-      DatabaseConfig("org.h2.Driver", "jdbc:h2:mem:hello", "user", "pass")
-  }
-
-  trait ZConnectionPool {
-    def connection: ZIO[Scope, Throwable, java.sql.Connection]
-  }
-  object ZConnectionPool {
-    val live: ZLayer[DatabaseConfig, Throwable, ZConnectionPool] =
-      ZLayer.scoped {
-        ZIO.blocking {
-          for {
-            cfg <- ZIO.service[DatabaseConfig]
-            _   <- ZIO.attempt(Class.forName(cfg.driverClass))
-            _   <- ZIO.attempt(ConnectionPool.singleton(cfg.url, cfg.user, cfg.password))
-          } yield new ZConnectionPool {
-            def connection: ZIO[Scope, Throwable, java.sql.Connection] =
-              ZIO.blocking {
-                for {
-                  connection <- ZIO.acquireRelease(ZIO.attempt(ConnectionPool.borrow()))(c => ZIO.succeed(c.close()))
-                } yield connection
-              }
-          }
-        }
-      }
-  }
-
-  object ZScalikeJDBC {
-
-    val transaction: ZLayer[ZConnectionPool, Throwable, DBSession] =
-      ZLayer.scoped {
-        ZIO.blocking {
-          for {
-            pool       <- ZIO.service[ZConnectionPool]
-            connection <- pool.connection
-            db         <- ZIO.attempt(DB(connection))
-            _ <- (ZIO.attempt(db.begin()) *>
-                   ZIO.addFinalizerExit(exit => ZIO.succeed(if (exit.isSuccess) db.commit() else db.rollback())))
-            session <- ZIO.attempt(db.withinTxSession())
-          } yield session
-        }
-      }
-
-    private def session[A](f: DBSession => A): ZIO[DBSession, Throwable, A] =
-      for {
-        session <- ZIO.service[DBSession]
-        result  <- ZIO.attemptBlocking(f(session))
-      } yield result
-
-    def execute[A](sql: => SQL[A, _ <: WithExtractor]): RIO[DBSession, Unit] =
-      session { implicit dbSession =>
-        sql.execute.apply()
-      }
-
-    def update[A](sql: => SQL[A, _ <: WithExtractor]): RIO[DBSession, Int] =
-      session { implicit dbSession =>
-        sql.update.apply()
-      }
-
-    def single[A](sql: => SQL[A, HasExtractor])(extract: WrappedResultSet => A): RIO[DBSession, Option[A]] =
-      session { implicit dbSession =>
-        sql.single.apply()
-      }
-
-    def many[A](sql: => SQL[A, HasExtractor]): RIO[DBSession, List[A]] =
-      session { implicit dbSession =>
-        sql.list.apply()
-      }
-  }
 
   //
   // TOUR
@@ -114,8 +42,8 @@ object PersistenceSection {
       )
   }
 
-  val createTable: ZIO[DBSession, Throwable, Unit] =
-    ZScalikeJDBC.execute {
+  val createTable: ZIO[ZConnection, Throwable, Unit] =
+    execute {
       sql"""
       create table detectives (
         id    IDENTITY NOT NULL PRIMARY KEY,
@@ -125,36 +53,36 @@ object PersistenceSection {
     }
 
   val executedCreateTable: ZIO[ZConnectionPool, Throwable, Unit] =
-    ZScalikeJDBC.transaction {
+    transaction {
       createTable
     }
 
   val insertedDetectives: ZIO[ZConnectionPool, Throwable, List[Unit]] =
-    ZScalikeJDBC.transaction {
+    transaction {
       ZIO.foreach(Detective.famous) { detective =>
-        ZScalikeJDBC.execute {
+        execute {
           sql"insert into detectives (name) values (${detective.name})"
         }
       }
     }
 
-  val queriedDetectives: ZIO[ZConnectionPool, Throwable, List[Detective]] =
-    ZScalikeJDBC.transaction {
-      ZScalikeJDBC.many {
-        sql"select * from detectives".map(rs => Detective(rs.string("name")))
+  val queriedDetectives: ZIO[ZConnectionPool, Throwable, Chunk[Detective]] =
+    transaction {
+      selectAll[Detective] {
+        sql"select * from detectives".as[String].map(Detective(_))
       }
     }
 
-  val updatedDetectives: ZIO[ZConnectionPool, Throwable, Int] =
-    ZScalikeJDBC.transaction {
-      ZScalikeJDBC.update {
+  val updatedDetectives: ZIO[ZConnectionPool, Throwable, Long] =
+    transaction {
+      update {
         sql"update detectives set name = 'Sherlock Holmes and John Watson' where name = 'Sherlock Holmes'"
       }
     }
 
-  val deletedJimRockford: ZIO[ZConnectionPool, Throwable, Int] =
-    ZScalikeJDBC.transaction {
-      ZScalikeJDBC.update {
+  val deletedJimRockford: ZIO[ZConnectionPool, Throwable, Long] =
+    transaction {
+      update {
         sql"delete from detectives where name = 'Jim Rockford'"
       }
     }
@@ -173,7 +101,7 @@ object PersistenceSection {
    *   - `age` - integer (non-nullable)
    *   - `email` - variable-length string (non-nullable)
    */
-  lazy val createTable2: ZIO[DBSession, Throwable, Unit] = TODO
+  lazy val createTable2: ZIO[ZConnectionPool, Throwable, Unit] = TODO
 
   /**
    * EXERCISE
@@ -190,13 +118,17 @@ object PersistenceSection {
   /**
    * EXERCISE
    *
-   * Define a constructor for `User` that takes in a `WrappedResultSet`.
+   * Define a JDBC decoder for `User`.
    */
   final case class User(id: Option[Long], name: String, age: Int, email: String)
   object User {
     implicit val schema: Schema[User] = DeriveSchema.gen[User]
 
-    def apply(rs: WrappedResultSet): User = TODO
+    implicit val userDecoder: JdbcDecoder[User] =
+      new JdbcDecoder[User] {
+        def unsafeDecode(rs: java.sql.ResultSet): User =
+          ???
+      }
   }
 
   //
@@ -265,11 +197,10 @@ object PersistenceSection {
   /**
    * EXERCISE
    *
-   * Use ZIO Schema to decode the result set into a case class, or fail with a
-   * descriptive error message if this is not possible.
+   * Use ZIO Schema to decode the result set into a case class.
    */
-  def selectOneAs[A: Schema](sql: => SQL[_, _ <: WithExtractor]): RIO[ZConnectionPool, Option[A]] =
-    ???
+  def selectOneAs[A: Schema](sql: => Sql[_]): RIO[ZConnectionPool, Option[A]] =
+    TODO
 
   /**
    * EXERCISE
@@ -277,7 +208,7 @@ object PersistenceSection {
    * Use ZIO Schema to decode the result set into a case class, or fail with a
    * descriptive error message if this is not possible.
    */
-  def selectManyAs[A: Schema, E <: WithExtractor](sql: => SQL[_, _ <: WithExtractor]): RIO[ZConnectionPool, List[A]] =
+  def selectManyAs[A: Schema](sql: => Sql[_]): RIO[ZConnectionPool, Chunk[A]] =
     ???
 
   /**

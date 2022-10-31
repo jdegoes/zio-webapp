@@ -7,7 +7,6 @@ val ZioLoggingVersion = "2.1.3"
 val ZioJDBCVersion    = "0.0.1"
 val ZioMetrics        = "2.0.0"
 
-val ScalikeVersion = "4.0.0"
 val H2Version      = "2.1.210"
 val LogbackVersion = "1.2.3"
 
@@ -40,23 +39,22 @@ lazy val root = project
   .aggregate(core, docs, workshop)
 
 lazy val commonDeps = libraryDependencies ++= Seq(
-  "dev.zio"         %% "zio"                    % ZioVersion,
-  "dev.zio"         %% "zio-json"               % ZioJsonVersion,
-  "io.d11"          %% "zhttp"                  % ZioHttpVersion,
-  "dev.zio"         %% "zio-config"             % ZioConfigVersion,
-  "dev.zio"         %% "zio-config-magnolia"    % ZioConfigVersion,
-  "dev.zio"         %% "zio-schema"             % ZioSchemaVersion,
-  "dev.zio"         %% "zio-schema-derivation"  % ZioSchemaVersion,
-  "dev.zio"         %% "zio-schema-protobuf"    % ZioSchemaVersion,
-  "dev.zio"         %% "zio-logging"            % ZioLoggingVersion,
-  "dev.zio"         %% "zio-logging-slf4j"      % ZioLoggingVersion,
-  "dev.zio"         %% "zio-jdbc"               % ZioJDBCVersion,
-  "dev.zio"         %% "zio-metrics-connectors" % ZioMetrics,
-  "org.scalikejdbc" %% "scalikejdbc"            % ScalikeVersion,
-  "com.h2database"   % "h2"                     % H2Version,
-  "ch.qos.logback"   % "logback-classic"        % LogbackVersion,
-  "dev.zio"         %% "zio-test"               % ZioVersion % Test,
-  "dev.zio"         %% "zio-test-sbt"           % ZioVersion % Test
+  "dev.zio"       %% "zio"                    % ZioVersion,
+  "dev.zio"       %% "zio-json"               % ZioJsonVersion,
+  "io.d11"        %% "zhttp"                  % ZioHttpVersion,
+  "dev.zio"       %% "zio-config"             % ZioConfigVersion,
+  "dev.zio"       %% "zio-config-magnolia"    % ZioConfigVersion,
+  "dev.zio"       %% "zio-schema"             % ZioSchemaVersion,
+  "dev.zio"       %% "zio-schema-derivation"  % ZioSchemaVersion,
+  "dev.zio"       %% "zio-schema-protobuf"    % ZioSchemaVersion,
+  "dev.zio"       %% "zio-logging"            % ZioLoggingVersion,
+  "dev.zio"       %% "zio-logging-slf4j"      % ZioLoggingVersion,
+  "dev.zio"       %% "zio-jdbc"               % ZioJDBCVersion,
+  "dev.zio"       %% "zio-metrics-connectors" % ZioMetrics,
+  "com.h2database" % "h2"                     % H2Version,
+  "ch.qos.logback" % "logback-classic"        % LogbackVersion,
+  "dev.zio"       %% "zio-test"               % ZioVersion % Test,
+  "dev.zio"       %% "zio-test-sbt"           % ZioVersion % Test
 )
 
 lazy val core = (project in file("zio-webapp-core"))

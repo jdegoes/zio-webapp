@@ -22,8 +22,8 @@ object PersistenceSpec extends ZIOSpecDefault {
 
   import PersistenceSection._
 
-  val testPersistenceLayer: ZLayer[Any, TestFailure[Nothing], ZConnectionPool] =
-    (ZLayer.succeed(DatabaseConfig.test) >>> ZConnectionPool.live).mapError(TestFailure.die(_))
+  val testPersistenceLayer: ZLayer[Any, TestFailure[Nothing], zio.jdbc.ZConnectionPool] =
+    zio.jdbc.ZConnectionPool.h2test.mapError(TestFailure.die(_))
 
   def spec = suite("PersistenceSpec") {
     suite("tour") {
