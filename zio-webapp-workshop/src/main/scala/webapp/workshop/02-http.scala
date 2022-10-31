@@ -187,9 +187,9 @@ object HttpSection {
    * EXERCISE
    *
    * Create a `HttpApp` that successfully returns the specified data. Hint: See
-   * the HttpData constructors.
+   * the Body constructors.
    */
-  def httpFromData(data: HttpData): HttpApp[Any, Nothing] = TODO
+  def httpFromData(data: Body): HttpApp[Any, Nothing] = TODO
 
   /**
    * EXERCISE
@@ -252,7 +252,7 @@ object HttpSection {
    * to `Request` (which contains a `URL` inside of it).
    */
   val httpDataUsingHttp: Http[Any, Throwable, URL, String] =
-    Http.identity[URL].map(_.asString)
+    Http.identity[URL].map(_.toJavaURI.toString())
   lazy val requestUsingHttp: Http[Any, Throwable, Request, String] =
     httpDataUsingHttp.TODO
 
@@ -587,7 +587,7 @@ object HttpSection {
   implicit class ResponseExtensions(val response: Response) extends AnyVal {
     def as[A: JsonDecoder]: Task[A] =
       for {
-        chunk      <- response.data.toByteBuf.map(buf => Chunk.fromArray(buf.array()))
+        chunk      <- response.body.asChunk
         chunkString = new String(chunk.toArray)
         result <- ZIO
                     .fromEither(JsonDecoder[A].decodeJson(new String(chunk.toArray)))

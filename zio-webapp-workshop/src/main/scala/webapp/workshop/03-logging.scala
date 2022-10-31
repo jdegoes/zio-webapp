@@ -23,10 +23,13 @@ import zio._
 import zio.logging._
 
 object LoggingSection {
-  val logOutput: Ref[Chunk[String]] = Runtime.default.unsafeRun(Ref.make(Chunk.empty))
+  def unsafeRun[E, A](io: IO[E, A]): A =
+    Unsafe.unsafe(implicit u => Runtime.default.unsafe.run(io).getOrThrowFiberFailure())
+
+  val logOutput: Ref[Chunk[String]] = unsafeRun(Ref.make(Chunk.empty))
 
   def appendLogMessage(s: String): Unit =
-    Runtime.default.unsafeRun(logOutput.update(_ :+ s))
+    unsafeRun(logOutput.update(_ :+ s))
 
   //
   // RUNTIMECONFIG
@@ -44,13 +47,14 @@ object LoggingSection {
   val testStringLogFormatter: ZLogger[String, String] =
     new ZLogger[String, String] {
       def apply(
-        trace: ZTraceElement,
+        trace: Trace,
         fiberId: FiberId,
         logLevel: LogLevel,
         message: () => String,
-        context: Map[FiberRef.Runtime[_], AnyRef],
+        cause: Cause[Any],
+        context: FiberRefs,
         spans: List[LogSpan],
-        location: ZTraceElement
+        annotations: Map[String, String]
       ): String = TODO
     }
 
@@ -61,22 +65,20 @@ object LoggingSection {
    * message generated, it will append the message to `logOutput` using the
    * function `appendLogMessage`.
    */
-  lazy val testStringLogger: ZLogger[String, Unit]    = testStringLogFormatter.TODO
-  lazy val testCauseLogger: ZLogger[Cause[Any], Unit] = testStringLogger.contramap[Cause[Any]](_.prettyPrint)
+  lazy val testStringLogger: ZLogger[String, Unit] = testStringLogFormatter.TODO
 
-  lazy val testLoggerSet: ZLogger.Set[String & Cause[Any], Any] =
-    testStringLogger.toSet[String] ++ testCauseLogger.toSet[Cause[Any]]
+  lazy val testLoggerSet: ZLogger[String, Any] = testStringLogger
 
   /**
    * EXERCISE
    *
-   * Create a `RuntimeConfigAspect` which clears out any existing loggers, and
-   * which installs the `testLoggerSet` into the `RuntimeConfig`.
+   * Using `Runtime.removeDefaultLoggers` and `ZIO#provide`, clear out default
+   * loggers for the specified effet.
    */
-  lazy val testLoggerAspect: RuntimeConfigAspect =
-    RuntimeConfigAspect { config =>
-      config // TODO
-    }
+  lazy val loggingNoDefault =
+    (for {
+      _ <- ZIO.log("This won't go anywhere!")
+    } yield ()).TODO
 
   //
   // LOGGING FRONTEND
@@ -149,13 +151,11 @@ object LoggingSection {
   /**
    * EXERCISE
    *
-   * Using `ZIO#withRuntimeConfig`, replace the `RuntimeConfig` with a new one
-   * that utilizes the `zio.logging.console(myLogFormat)` for the scope of the
-   * effect provided below. below.
+   * Using `ZIO#provideLayer`, provide a layer to the effect that will use a a
+   * logger constructed using `zio.logging.console(myLogFormat)`.
    */
-  lazy val testEffect =
+  lazy val loggedttoConsole =
     (for {
-      runtimeConfig <- ZIO.runtimeConfig
-      _             <- ZIO.log("Hello World!")
+      _ <- ZIO.log("Hello World!")
     } yield ()).TODO
 }

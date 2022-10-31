@@ -32,6 +32,7 @@ object SchemaSection {
 
     implicit val schema =
       Schema.CaseClass2[String, Int, Person](
+        TypeId.fromTypeName(classOf[Person].getName()),
         Field("name", Schema[String]),
         Field("age", Schema[Int]),
         Person(_, _),
@@ -78,16 +79,27 @@ object SchemaSection {
     final case class CreditCard(number: String) extends PaymentMethod
     object CreditCard {
       implicit val schema =
-        Schema.CaseClass1[String, CreditCard](Field("number", Schema[String]), CreditCard(_), _.number)
+        Schema.CaseClass1[String, CreditCard](
+          TypeId.fromTypeName(classOf[CreditCard].getName()),
+          Field("number", Schema[String]),
+          CreditCard(_),
+          _.number
+        )
     }
     final case class BankTransfer(account: String) extends PaymentMethod
     object BankTransfer {
       implicit val schema =
-        Schema.CaseClass1[String, BankTransfer](Field("account", Schema[String]), BankTransfer(_), _.account)
+        Schema.CaseClass1[String, BankTransfer](
+          TypeId.fromTypeName(classOf[BankTransfer].getName()),
+          Field("account", Schema[String]),
+          BankTransfer(_),
+          _.account
+        )
     }
 
     implicit val schema =
       Schema.Enum2[CreditCard, BankTransfer, PaymentMethod](
+        TypeId.fromTypeName(classOf[PaymentMethod].getName()),
         Case("CreditCard", Schema[CreditCard], _.asInstanceOf[CreditCard]),
         Case("BankTransfer", Schema[BankTransfer], _.asInstanceOf[BankTransfer])
       )
@@ -275,6 +287,7 @@ object SchemaSection {
 
     implicit lazy val schema: Schema.CaseClass2[String, String, User] =
       Schema.CaseClass2[String, String, User](
+        TypeId.fromTypeName(classOf[User].getName()),
         Field("name", Schema[String]),
         Field("password", Schema[String]),
         User(_, _),

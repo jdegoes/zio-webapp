@@ -30,22 +30,24 @@ object PersistenceSection {
   }
 
   trait ZConnectionPool {
-    def connection: ZManaged[Any, Throwable, java.sql.Connection]
+    def connection: ZIO[Scope, Throwable, java.sql.Connection]
   }
   object ZConnectionPool {
     val live: ZLayer[DatabaseConfig, Throwable, ZConnectionPool] =
-      ZLayer {
-        for {
-          _   <- ZManaged.blocking
-          cfg <- ZManaged.service[DatabaseConfig]
-          _   <- ZManaged.attempt(Class.forName(cfg.driverClass))
-          _   <- ZManaged.attempt(ConnectionPool.singleton(cfg.url, cfg.user, cfg.password))
-        } yield new ZConnectionPool {
-          def connection: ZManaged[Any, Throwable, java.sql.Connection] =
-            for {
-              _          <- ZManaged.blocking
-              connection <- ZManaged.acquireReleaseAttemptWith(ConnectionPool.borrow())(_.close())
-            } yield connection
+      ZLayer.scoped {
+        ZIO.blocking {
+          for {
+            cfg <- ZIO.service[DatabaseConfig]
+            _   <- ZIO.attempt(Class.forName(cfg.driverClass))
+            _   <- ZIO.attempt(ConnectionPool.singleton(cfg.url, cfg.user, cfg.password))
+          } yield new ZConnectionPool {
+            def connection: ZIO[Scope, Throwable, java.sql.Connection] =
+              ZIO.blocking {
+                for {
+                  connection <- ZIO.acquireRelease(ZIO.attempt(ConnectionPool.borrow()))(c => ZIO.succeed(c.close()))
+                } yield connection
+              }
+          }
         }
       }
   }
@@ -53,16 +55,17 @@ object PersistenceSection {
   object ZScalikeJDBC {
 
     val transaction: ZLayer[ZConnectionPool, Throwable, DBSession] =
-      ZLayer {
-        for {
-          _          <- ZManaged.blocking
-          pool       <- ZManaged.service[ZConnectionPool]
-          connection <- pool.connection
-          db         <- ZManaged.attempt(DB(connection))
-          _ <- (ZManaged.attempt(db.begin()) *> ZManaged
-                 .finalizerExit(exit => ZIO.succeed(if (exit.isSuccess) db.commit() else db.rollback())))
-          session <- ZManaged.attempt(db.withinTxSession())
-        } yield session
+      ZLayer.scoped {
+        ZIO.blocking {
+          for {
+            pool       <- ZIO.service[ZConnectionPool]
+            connection <- pool.connection
+            db         <- ZIO.attempt(DB(connection))
+            _ <- (ZIO.attempt(db.begin()) *>
+                   ZIO.addFinalizerExit(exit => ZIO.succeed(if (exit.isSuccess) db.commit() else db.rollback())))
+            session <- ZIO.attempt(db.withinTxSession())
+          } yield session
+        }
       }
 
     private def session[A](f: DBSession => A): ZIO[DBSession, Throwable, A] =

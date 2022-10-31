@@ -275,7 +275,7 @@ object ConfigSection {
    * constructed from `UserDatabaseConfig`.
    */
   object UsersApp extends ZIOAppDefault {
-    def run: ZIO[ZEnv with ZIOAppArgs, Any, Any] = TODO
+    def run: ZIO[ZIOAppArgs, Any, Any] = TODO
   }
 
   final case class UserDatabaseConfig(url: String)
@@ -296,7 +296,7 @@ object ConfigSection {
         for {
           config <- ZIO.service[UserDatabaseConfig]
         } yield new UserRepo {
-          def lookupUserById(id: String): Task[User] = Task.fail(new Exception("Not implemented"))
+          def lookupUserById(id: String): Task[User] = ZIO.fail(new Exception("Not implemented"))
         }
       }
   }
@@ -304,7 +304,8 @@ object ConfigSection {
   val usersHttpApp: HttpApp[UserRepo, Throwable] =
     Http.collectZIO[Request] { case Method.GET -> !! / "users" / id =>
       for {
-        user <- ZIO.serviceWithZIO[UserRepo](_.lookupUserById(id))
+        userRepo <- ZIO.service[UserRepo]
+        user     <- userRepo.lookupUserById(id)
       } yield Response.json(user.toJson)
     }
 }

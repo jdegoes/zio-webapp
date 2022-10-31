@@ -1,9 +1,9 @@
-val ZioVersion        = "2.0.0-RC1"
-val ZioJsonVersion    = "0.3.0-RC2"
-val ZioHttpVersion    = "2.0.0-RC2"
+val ZioVersion        = "2.0.2"
+val ZioJsonVersion    = "0.3.0"
+val ZioHttpVersion    = "2.0.0-RC11"
 val ZioConfigVersion  = "3.0.0-RC1"
-val ZioSchemaVersion  = "0.2.0-RC1-1"
-val ZioLoggingVersion = "2.0.0-RC4"
+val ZioSchemaVersion  = "0.2.1"
+val ZioLoggingVersion = "2.1.3"
 val ZioZmxVersion     = "2.0.0-M1"
 
 val ScalikeVersion = "4.0.0"
@@ -52,9 +52,8 @@ lazy val commonDeps = libraryDependencies ++= Seq(
   "org.scalikejdbc" %% "scalikejdbc"           % ScalikeVersion,
   "com.h2database"   % "h2"                    % H2Version,
   "ch.qos.logback"   % "logback-classic"       % LogbackVersion,
-  "io.d11"          %% "zhttp-test"            % ZioHttpVersion % Test,
-  "dev.zio"         %% "zio-test"              % ZioVersion     % Test,
-  "dev.zio"         %% "zio-test-sbt"          % ZioVersion     % Test
+  "dev.zio"         %% "zio-test"              % ZioVersion % Test,
+  "dev.zio"         %% "zio-test-sbt"          % ZioVersion % Test
 )
 
 lazy val core = (project in file("zio-webapp-core"))

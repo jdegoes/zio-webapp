@@ -21,6 +21,7 @@
 package webapp.workshop
 
 import zio._
+import zio.metrics._
 
 import zhttp.http.middleware._
 
@@ -29,43 +30,42 @@ object MetricsSection {
   /**
    * EXERCISE
    *
-   * Using `ZIOMetric.count`, create a counter called `web-requests`.
+   * Using `Metric.counter`, create a counter called `web-requests`.
    */
-  lazy val webRequestsCounter: ZIOMetric.Counter[Any] = TODO
+  lazy val webRequestsCounter: Metric.Counter[Long] = TODO
 
   /**
    * EXERCISE
    *
-   * Using `ZIOMetric.observeDurations`, create a histogram called
-   * `web-request-durations` that will keep track of the durations of web
-   * requests.
+   * Using `Metric.histogram`, create a histogram called `web-request-durations`
+   * that will keep track of the durations of web requests.
    */
-  lazy val requestDurations: ZIOMetric.Histogram[Any] = TODO
+  lazy val requestDurations: Metric.Histogram[Double] = TODO
 
   /**
    * EXERCISE
    *
-   * Using `ZIOMetric.setGaugeWith`, create a gauge called
-   * `database-connections`, which will count database connections on an effect
-   * producing an `Int` (which represents the number of active connections).
+   * Using `Metric.gauge`, create a gauge called `database-connections`, which
+   * will count database connections on an effect producing an `Int` (which
+   * represents the number of active connections).
    */
-  lazy val databaseConnectionGauge: ZIOMetric.Gauge[Int] = TODO
+  lazy val databaseConnectionGauge: Metric.Gauge[Double] = TODO
 
   /**
    * EXERCISE
    *
-   * Using `ZIOMetric.observeSummary`, create a summary metric to be used for
-   * tracking request durations on a sliding window of 60 minutes.
+   * Using `Metric.summary`, create a summary metric to be used for tracking
+   * request durations on a sliding window of 60 minutes.
    */
-  lazy val requestDurationsSummary: ZIOMetric.Summary[Double] = TODO
+  lazy val requestDurationsSummary: Metric.Summary[Double] = TODO
 
   /**
    * EXERCISE
    *
-   * Using `ZIOMetric.occurrencesWith`, create a `SetCount` metric that keeps
-   * track of the number of occurrences of each HTTP response status code.
+   * Using `Metric.frequency`, create a `Frequency` metric that keeps track of
+   * the number of occurrences of each HTTP response status code.
    */
-  lazy val httpResponseStatusCodes: ZIOMetric.SetCount[Int] = TODO
+  lazy val httpResponseStatusCodes: Metric.Frequency[Int] = TODO
 
   //
   // METRICS USAGE
