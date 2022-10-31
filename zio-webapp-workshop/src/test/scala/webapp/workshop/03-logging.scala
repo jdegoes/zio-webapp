@@ -24,7 +24,7 @@ import zio.test._
 import zio.test.TestAspect._
 import zio.logging._
 
-object LoggingSpec extends DefaultRunnableSpec {
+object LoggingSpec extends ZIOSpecDefault {
 
   import LoggingSection._
 
@@ -42,18 +42,10 @@ object LoggingSpec extends DefaultRunnableSpec {
       } yield assertTrue(!substrings.exists(substring => output.exists(_.contains(substring))))
 
     def assertLoggedWith(log: UIO[Any], format: LogFormat)(substrings: String*) =
-      ZIO.runtimeConfig.flatMap { runtimeConfig =>
-        val stringLogger = format.toLogger.map(line => appendLogMessage(line))
-        val causeLogger  = stringLogger.contramap[Cause[Any]](_.prettyPrint)
-
-        val loggerSet = stringLogger.toSet[String] ++ causeLogger.toSet[Cause[Any]]
-
-        (for {
-          _      <- log
-          output <- logOutput.get
-        } yield assertTrue(substrings.forall(substring => output.exists(_.contains(substring)))))
-          .withRuntimeConfig(runtimeConfig.copy(loggers = loggerSet))
-      }
+      for {
+        _      <- log.provide(Runtime.addLogger(format.toLogger.map(line => appendLogMessage(line))))
+        output <- logOutput.get
+      } yield assertTrue(substrings.forall(substring => output.exists(_.contains(substring))))
 
     suite("RuntimeConfig") {
       test("log formatter") {
@@ -97,8 +89,8 @@ object LoggingSpec extends DefaultRunnableSpec {
           assertLoggedWith(ZIO.log("Testing"), myLogFormat)("Testing", "INFO")
         } +
           test("console") {
-            assertNotLogged(testEffect)("Hello World!")
+            assertNotLogged(loggedToConsole)("Hello World!")
           }
       }
-  } @@ sequential @@ TestAspect.runtimeConfig(testLoggerAspect) @@ after(logOutput.set(Chunk.empty))
+  } @@ sequential @@ after(logOutput.set(Chunk.empty))
 }

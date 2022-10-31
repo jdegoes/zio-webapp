@@ -24,12 +24,12 @@ import zio.test._
 
 import zio.config._
 
-object ConfigSpec extends DefaultRunnableSpec {
+object ConfigSpec extends ZIOSpecDefault {
 
   import ConfigSection._
 
   def spec = suite("ConfigSpec") {
-    def assertRoundtrip[A: ConfigDescriptor](a: A): IO[String, Assert] = {
+    def assertRoundtrip[A: ConfigDescriptor](a: A): IO[String, TestResult] = {
       val cd = implicitly[ConfigDescriptor[A]]
 
       for {

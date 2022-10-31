@@ -24,7 +24,7 @@ import zio.schema._
 import zio.test._
 import zio.test.TestAspect.ignore
 
-object SchemaSpec extends DefaultRunnableSpec {
+object SchemaSpec extends ZIOSpecDefault {
 
   import SchemaSection._
 
@@ -107,13 +107,13 @@ object SchemaSpec extends DefaultRunnableSpec {
 
           assertTrue(
             Schema[UserId].toDynamic(userId) ==
-              DynamicValue.Transform(DynamicValue.Primitive("sholmes", StandardType.StringType))
+              DynamicValue.Primitive("sholmes", StandardType.StringType)
           )
         } +
           test("transformOrFail") {
             val validEmail =
-              DynamicValue.Transform(DynamicValue.Primitive("sherlock@holmes.com", StandardType.StringType))
-            val invalidEmail = DynamicValue.Transform(DynamicValue.Primitive("sherlock", StandardType.StringType))
+              DynamicValue.Primitive("sherlock@holmes.com", StandardType.StringType)
+            val invalidEmail = DynamicValue.Primitive("sherlock", StandardType.StringType)
 
             assertTrue(Schema[Email].fromDynamic(validEmail).isRight) &&
             assertTrue(Schema[Email].fromDynamic(invalidEmail).isLeft)

@@ -18,7 +18,7 @@ import zio.test._
 import zio.test.TestAspect.ignore
 import zio.stream._
 
-object JsonSpec extends DefaultRunnableSpec {
+object JsonSpec extends ZIOSpecDefault {
 
   import JsonSection._
 

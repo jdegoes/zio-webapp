@@ -15,7 +15,7 @@ package webapp.workshop
 import zio.test._
 import zhttp.http._
 
-object MiddlewareSpec extends DefaultRunnableSpec {
+object MiddlewareSpec extends ZIOSpecDefault {
 
   import MiddlewareSection._
 

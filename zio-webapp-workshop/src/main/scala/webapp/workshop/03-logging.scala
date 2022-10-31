@@ -151,10 +151,10 @@ object LoggingSection {
   /**
    * EXERCISE
    *
-   * Using `ZIO#provideLayer`, provide a layer to the effect that will use a a
+   * Using `ZIO#provideLayer`, provide a layer to the effect that will use a
    * logger constructed using `zio.logging.console(myLogFormat)`.
    */
-  lazy val loggedttoConsole =
+  lazy val loggedToConsole: ZIO[Any, Nothing, Unit] =
     (for {
       _ <- ZIO.log("Hello World!")
     } yield ()).TODO

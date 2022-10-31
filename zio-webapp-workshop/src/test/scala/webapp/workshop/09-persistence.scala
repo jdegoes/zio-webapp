@@ -18,7 +18,7 @@ package webapp.workshop
 import zio._
 import zio.test._
 
-object PersistenceSpec extends DefaultRunnableSpec {
+object PersistenceSpec extends ZIOSpecDefault {
 
   import PersistenceSection._
 
@@ -37,5 +37,5 @@ object PersistenceSpec extends DefaultRunnableSpec {
         } yield assertCompletes)
       }
     }
-  }.provideCustomLayer(testPersistenceLayer)
+  }.provideLayer(testPersistenceLayer)
 }

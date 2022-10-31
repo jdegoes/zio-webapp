@@ -27,7 +27,7 @@ import zio.test.TestAspect.ignore
 import zhttp.http._
 import zhttp.http.middleware._
 
-object MetricsSpec extends DefaultRunnableSpec {
+object MetricsSpec extends ZIOSpecDefault {
 
   import MetricsSection._
 

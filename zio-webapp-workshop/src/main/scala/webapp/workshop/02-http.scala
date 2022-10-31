@@ -132,7 +132,7 @@ object HttpSection {
    * Use `Http.fromZIO` to turn `Console.readLine` into an `Http` that succeeds
    * with a line of text from the console.
    */
-  def consoleHttp: Http[Console, IOException, Any, String] = TODO
+  def consoleHttp: Http[Any, IOException, Any, String] = TODO
 
   //
   // HTTPAPP CONSTRUCTORS
@@ -197,7 +197,7 @@ object HttpSection {
    * Create a `HttpApp` that successfully returns a response based on the
    * contents of the specified file. Hint: See the HttpData constructors.
    */
-  def httpFromFile(file: java.io.File): HttpApp[Any, Nothing] = TODO
+  def httpFromFile(file: java.io.File): HttpApp[Any, Throwable] = TODO
 
   /**
    * EXERCISE
@@ -234,8 +234,8 @@ object HttpSection {
    * string), and then use `Console.readLine` to read a line of text from the
    * console.
    */
-  val promptHttp                                                    = Http.succeed("What is your name?")
-  lazy val interactiveHttp: Http[Console, IOException, Any, String] = TODO
+  val promptHttp                                                = Http.succeed("What is your name?")
+  lazy val interactiveHttp: Http[Any, IOException, Any, String] = TODO
 
   /**
    * EXERCISE
@@ -321,9 +321,9 @@ object HttpSection {
    * Using `Http#*>`, compose the following two Http into one, such that the
    * resulting `Http` produces the output of the right hand side.
    */
-  val printPrompt                                                 = Http.fromZIO(Console.printLine("What is your name?"))
-  val readAnswer                                                  = Http.fromZIO(Console.readLine)
-  lazy val promptAndRead: Http[Console, IOException, Any, String] = printPrompt.TODO
+  val printPrompt                                             = Http.fromZIO(Console.printLine("What is your name?"))
+  val readAnswer                                              = Http.fromZIO(Console.readLine)
+  lazy val promptAndRead: Http[Any, IOException, Any, String] = printPrompt.TODO
 
   /**
    * EXERCISE
@@ -495,7 +495,7 @@ object HttpSection {
     implicit lazy val jsonCodec: JsonCodec[TodoCreated] = TODO
   }
 
-  final case class TodoRepo(clock: Clock, idGen: Ref[Long], todos: Ref[Map[Long, Todo]]) {
+  final case class TodoRepo(idGen: Ref[Long], todos: Ref[Map[Long, Todo]]) {
     def getAll: UIO[Chunk[Todo]] =
       for {
         _     <- ZIO.debug("Getting all todos")
@@ -507,7 +507,7 @@ object HttpSection {
       for {
         _       <- ZIO.debug(s"Creating todo with description: $description")
         id      <- idGen.updateAndGet(_ + 1)
-        created <- clock.instant
+        created <- Clock.instant
         todo     = Todo(id, description, created, created)
         _       <- todos.update(_ + (id -> todo))
       } yield todo
@@ -521,7 +521,7 @@ object HttpSection {
     def updateTodo(id: Long, description: => String): UIO[Option[Todo]] =
       for {
         _        <- ZIO.debug(s"Updating todo with id: $id and description: $description")
-        modified <- clock.instant
+        modified <- Clock.instant
         todo <- todos.modify { map =>
                   map.get(id) match {
                     case Some(value) =>
@@ -534,13 +534,12 @@ object HttpSection {
       } yield todo
   }
   object TodoRepo {
-    val testLayer: ZLayer[Clock, Nothing, TodoRepo] =
+    val testLayer: ZLayer[Any, Nothing, TodoRepo] =
       ZLayer {
         for {
-          clock <- ZIO.service[Clock]
           idGen <- Ref.make(0L)
           todos <- Ref.make(Map.empty[Long, Todo])
-        } yield TodoRepo(clock, idGen, todos)
+        } yield TodoRepo(idGen, todos)
       }
 
     def getAll: ZIO[TodoRepo, Nothing, Chunk[Todo]] = ZIO.serviceWithZIO(_.getAll)

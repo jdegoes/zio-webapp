@@ -21,16 +21,16 @@ import zhttp.http._
 import java.io.IOException
 import io.netty.buffer.ByteBuf
 
-object HttpSpec extends DefaultRunnableSpec {
+object HttpSpec extends ZIOSpecDefault {
 
   import HttpSection._
 
   final case class TodoAppTester[R](todoApp: HttpApp[R, Throwable]) {
     def getAll: ZIO[R, Throwable, Chunk[Todo]] =
-      makeRequest[Chunk[Todo]](Request(Method.GET, URL(!! / "todos")))
+      makeRequest[Chunk[Todo]](Request(method = Method.GET, url = URL(!! / "todos")))
 
     def getById(id: Long): ZIO[R, Throwable, Option[Todo]] =
-      makeRequest[Todo](Request(Method.GET, URL(!! / "todos" / id.toString)))
+      makeRequest[Todo](Request(method = Method.GET, url = URL(!! / "todos" / id.toString)))
         .map(Some(_))
 
     def create(description: String): ZIO[R, Throwable, Long] =
@@ -39,7 +39,7 @@ object HttpSpec extends DefaultRunnableSpec {
           method = Method.POST,
           url = URL(!! / "todos"),
           headers = Headers("Content-Type", HeaderValues.applicationJson),
-          data = HttpData.fromString(TodoDescription(description).toJson)
+          body = Body.fromString(TodoDescription(description).toJson)
         )
       ).map(_.id).mapError(_ => new RuntimeException("Cannot decode!"))
 
@@ -49,13 +49,13 @@ object HttpSpec extends DefaultRunnableSpec {
           method = Method.PUT,
           url = URL(!! / "todos" / id.toString),
           headers = Headers("Content-Type", HeaderValues.applicationJson),
-          data = HttpData.fromString(TodoDescription(description).toJson)
+          body = Body.fromString(TodoDescription(description).toJson)
         )
       ).unit.mapError(_ => new RuntimeException("Cannot decode!"))
 
     private def makeRequest[A: JsonDecoder](req: Request): ZIO[R, Throwable, A] =
       for {
-        response <- todoApp(req).catchAll(_ => ZIO.succeed(Response.status(Status.INTERNAL_SERVER_ERROR)))
+        response <- todoApp(req).catchAll(_ => ZIO.succeed(Response.status(Status.InternalServerError)))
         result   <- response.as[A]
       } yield result
   }
@@ -146,38 +146,37 @@ object HttpSpec extends DefaultRunnableSpec {
               val expected = Request(
                 method = Method.PUT,
                 url = URL.fromString("http://ziowebapp.com/greet").toOption.get,
-                data = HttpData.fromString("Hello World!")
+                body = Body.fromString("Hello World!")
               )
-              exampleRequest1.getBodyAsString.zip(expected.getBodyAsString).map { case (exampleBody, expectedBody) =>
+              exampleRequest1.body.asString.zip(expected.body.asString).map { case (exampleBody, expectedBody) =>
                 assertTrue(exampleRequest1.method == expected.method) &&
                   assertTrue(exampleRequest1.url == expected.url) &&
-                  assertTrue(exampleRequest1.getHeaders == expected.getHeaders) &&
+                  assertTrue(exampleRequest1.headers == expected.headers) &&
                   assertTrue(exampleBody == expectedBody)
               }
             } +
               test("Response") {
                 val expected =
-                  Response(status = Status.OK, data = HttpData.fromString("Hello World!"))
+                  Response(status = Status.Ok, body = Body.fromString("Hello World!"))
 
                 assertTrue(exampleResponse1 == expected)
               } +
               test("Http.ok") {
                 for {
                   result <- httpOk(Request())
-                } yield assertTrue(result.status == Status.OK)
+                } yield assertTrue(result.status == Status.Ok)
               } +
               test("Http.notFound") {
                 for {
                   result <- httpNotFound(Request())
-                } yield assertTrue(result.status == Status.NOT_FOUND)
+                } yield assertTrue(result.status == Status.NotFound)
               } +
               test("Http.badRequest") {
                 for {
-                  result          <- httpBadRequest("bad request")(Request())
-                  responseByteBuf <- result.data.toByteBuf
-                  responseText     = responseByteBuf.toString(HTTP_CHARSET)
+                  result       <- httpBadRequest("bad request")(Request())
+                  responseText <- result.body.asString
                 } yield {
-                  assertTrue(result.status == Status.BAD_REQUEST) &&
+                  assertTrue(result.status == Status.BadRequest) &&
                   assertTrue(responseText == "bad request")
                 }
               } +
@@ -189,10 +188,10 @@ object HttpSpec extends DefaultRunnableSpec {
                 } yield assertTrue(result.status == error.status)
               } +
               test("Http.fromData") {
-                val data = HttpData.fromString("Hello World!")
+                val data = Body.fromString("Hello World!")
 
                 val actual   = httpFromData(data)
-                val expected = Http.fromData(data)
+                val expected = Http.fromBody(data)
 
                 assertTrue(actual == expected)
               } +
@@ -243,7 +242,7 @@ object HttpSpec extends DefaultRunnableSpec {
           test("Http#contramap") {
             for {
               result <- requestUsingHttp(exampleRequest1)
-            } yield assertTrue(result == exampleRequest1.url.asString)
+            } yield assertTrue(result == exampleRequest1.url.toJavaURI.toString())
           }
       } +
       suite("combinations") {
@@ -349,7 +348,7 @@ object HttpSpec extends DefaultRunnableSpec {
             updated <- todo.getById(id)
           } yield assertTrue(initial == Chunk.empty) &&
             assertTrue(after(0).description == "Buy milk") &&
-            assertTrue(updated.get.description == "Buy almond milk")).provideCustomLayer(TodoRepo.testLayer)
+            assertTrue(updated.get.description == "Buy almond milk")).provide(TodoRepo.testLayer)
         }
       }
   }

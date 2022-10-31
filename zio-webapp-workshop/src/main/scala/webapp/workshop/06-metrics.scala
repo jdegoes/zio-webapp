@@ -121,4 +121,22 @@ object MetricsSection {
    * dumps out the metrics as JSON.
    */
   lazy val metricsMiddleware: HttpMiddleware[Any, Nothing] = TODO
+
+  /**
+   * Build a `zio.metrics.connectors.MetricsConfig` layer that is configured to
+   * refresh every 10 seconds.
+   */
+  import zio.metrics.connectors._
+  lazy val metricsConfig: ZLayer[Any, Nothing, MetricsConfig] =
+    ???
+
+  /**
+   * Install a Prometheus, Statsd, or other backend to the following effect
+   * using layers available from zio.metrics.connectors._
+   */
+  lazy val metricsEffect: ZIO[Any, Nothing, Unit] =
+    (for {
+      _ <- ZIO.log("Hello World!")
+      _ <- Metric.counter("hello-worlds").increment
+    } yield ()).TODO
 }
