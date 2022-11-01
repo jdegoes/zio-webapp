@@ -40,7 +40,8 @@ object JsonSection {
    * Create a JSON object with fields `name` (set to "Peter") and `age` (set to
    * 43).
    */
-  lazy val json2: Json = TODO
+  lazy val json2: Json = 
+    Json.Obj(Chunk(("name", Json.Str("Peter")), ("age", Json.Num(42))))
 
   /**
    * EXERCISE
@@ -48,21 +49,23 @@ object JsonSection {
    * Use the fromJson[Json] extension method to parse the string into a JSON
    * AST.
    */
-  lazy val json3: Either[String, Json] = """{"name":"John","age":42}""".TODO
+  lazy val json3: Either[String, Json] = """{"name":"John","age":42}""".fromJson[Json]
 
   /**
    * EXERCISE
    *
    * Insert a typo that renders this JSON invalid, so the test fails.
    */
-  lazy val jsonString1: String = """{"name":"John","age":42}"""
+  lazy val jsonString1: String = """{"name:"John","age":42}"""
 
   /**
    * EXERCISE
    *
    * Use `Json#foldUp` to count the number of Json.Str nodes in the JSON value.
    */
-  lazy val strCount1: Int = json1.TODO
+    lazy val strCount1: Int = json1.foldUpSome(0) { 
+      case (count, Json.Str(_)) => count + 1 
+    }
 
   //
   // JSON CURSORS
@@ -73,7 +76,7 @@ object JsonSection {
    *
    * Use `JsonCursor.identity` to construct an identity cursor.
    */
-  lazy val identityCursor: JsonCursor[Json, Json] = JsonCursor.TODO
+  lazy val identityCursor: JsonCursor[Json, Json] = JsonCursor.identity
 
   /**
    * EXERCISE
@@ -81,7 +84,7 @@ object JsonSection {
    * Use `JsonCursor#filterType` to refine `identityCursor` so that it selects
    * only Json.Obj nodes.
    */
-  lazy val objCursor: JsonCursor[Json, Json.Obj] = identityCursor.TODO
+  lazy val objCursor: JsonCursor[Json, Json.Obj] = identityCursor.filterType(JsonType.Obj)
 
   /**
    * EXERCISE
@@ -89,15 +92,15 @@ object JsonSection {
    * Use `JsonCursor#filterType` to refine `identityCursor` so that it selects
    * only Json.Arr nodes.
    */
-  lazy val arrCursor: JsonCursor[Json, Json.Arr] = identityCursor.TODO
+  lazy val arrCursor: JsonCursor[Json, Json.Arr] = identityCursor.filterType(JsonType.Arr)
 
   /**
    * EXERCISE
    *
-   * Use `JsonCursor#field` to refine `identityCursor` so that it selects for
+   * Use `JsonCursor.field` to refine `identityCursor` so that it selects for
    * the field "name" inside a JSON object.
    */
-  lazy val nameFieldCursor: JsonCursor[Json.Obj, Json] = identityCursor.TODO
+  lazy val nameFieldCursor: JsonCursor[Json.Obj, Json] = JsonCursor.field("name")
 
   /**
    * EXERCISE
@@ -105,7 +108,7 @@ object JsonSection {
    * Use `JsonCursor#element` to refine `identityCursor` so that it selects the
    * first element of a JSON array.
    */
-  lazy val firstElementCursor: JsonCursor[Json.Arr, Json] = identityCursor.TODO
+  lazy val firstElementCursor: JsonCursor[Json.Arr, Json] = JsonCursor.element(0)
 
   /**
    * EXERCISE
@@ -113,7 +116,8 @@ object JsonSection {
    * Use `Json#get` on a cursor that you create inline to select the "name"
    * field from `json1`.
    */
-  lazy val nameFromJson1: Either[String, Json] = json1.TODO
+  lazy val nameFromJson1: Either[String, Json.Str] = 
+    json1.get(JsonCursor.field("name").filterType(JsonType.Str))
 
   /**
    * EXERCISE
@@ -121,7 +125,7 @@ object JsonSection {
    * Use `Json#merge` to merge to `json1` with `json4` together.
    */
   lazy val json4: Json   = """{"weight":"70","height":206}""".fromJson[Json].toOption.get
-  lazy val merged1: Json = json1.TODO
+  lazy val merged1: Json = json1.merge(json4)
 
   //
   // ENCODERS
@@ -138,7 +142,7 @@ object JsonSection {
     "John"  -> List(1, 2, 3),
     "Peter" -> List(4, 5, 6)
   )
-  lazy val encodedMap1: CharSequence = JsonEncoder.TODO
+  lazy val encodedMap1: CharSequence = JsonEncoder[Map[String, List[Int]]].encodeJson(map1, None)
 
   final case class Email(value: String)
 
@@ -148,7 +152,7 @@ object JsonSection {
    * Use the `JsonEncoder#contramap` method to contramap a `JsonEncoder[String]`
    * so that it can encode `Email` values.
    */
-  lazy val emailEncoder: JsonEncoder[Email] = JsonEncoder[String].TODO
+  lazy val emailEncoder: JsonEncoder[Email] = JsonEncoder[String].contramap(_.value)
 
   /**
    * EXERCISE
@@ -159,7 +163,7 @@ object JsonSection {
   val stringEncoder1 = JsonEncoder[String]
   val intEncoder1    = JsonEncoder[Int]
 
-  lazy val tupleEncoder1: JsonEncoder[(String, Int)] = stringEncoder1.TODO
+  lazy val tupleEncoder1: JsonEncoder[(String, Int)] = stringEncoder1.zip(intEncoder1)
 
   /**
    * EXERCISE
@@ -169,7 +173,7 @@ object JsonSection {
    */
   final case class RestaurantReview(review: String, stars: Int, username: String, restaurantId: Long)
   object RestaurantReview {
-    implicit lazy val encoder: JsonEncoder[RestaurantReview] = DeriveJsonEncoder.TODO
+    implicit lazy val encoder: JsonEncoder[RestaurantReview] = DeriveJsonEncoder.gen[RestaurantReview]
     implicit lazy val decoder: JsonDecoder[RestaurantReview] = restaurantReviewDecoder
   }
 
@@ -187,7 +191,9 @@ object JsonSection {
     final case class OrderSuccess(orderId: String, time: Long) extends PurchaseEvent
     final case class OrderFailure(orderId: String, time: Long) extends PurchaseEvent
 
-    implicit lazy val encoder: JsonEncoder[PurchaseEvent] = DeriveJsonEncoder.TODO
+    // {"_type": "OrderPlaced", "orderId": "123ABC", "time": 123}
+
+    implicit lazy val encoder: JsonEncoder[PurchaseEvent] = DeriveJsonEncoder.gen[PurchaseEvent]
     implicit lazy val decoder: JsonDecoder[PurchaseEvent] = purchaseEventDecoder
   }
 

@@ -94,12 +94,7 @@ object SchemaSpec extends ZIOSpecDefault {
           val movieSchema = Schema[Movie]
 
           assertTrue(Movie.schema.extractField1(Movie.bladeRunner) == "Blade Runner")
-        } +
-          test("enum derivation") {
-            val color = Color.Custom(1, 2, 3)
-
-            assertTrue(Color.schema.case2.deconstruct(color) == Some(color))
-          }
+        }
       } +
       suite("operations") {
         test("transform") {

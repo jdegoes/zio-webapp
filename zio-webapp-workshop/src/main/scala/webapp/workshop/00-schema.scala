@@ -186,18 +186,47 @@ object SchemaSection {
         _.y
       )
   }
+  import Schema.{Case, Field} 
 
   sealed trait Amount
   object Amount {
     final case class USD(dollars: Int, cents: Int) extends Amount
+    object USD {
+      implicit val schema =
+        Schema.CaseClass2[Int, Int, USD](
+          TypeId.fromTypeName(classOf[USD].getName()),
+          Field("dollars", Schema[Int]),
+          Field("cents", Schema[Int]),
+          USD(_,_),
+          _.dollars,
+          _.cents
+        )
+
+    }
     final case class GBP(pounds: Int, pence: Int)  extends Amount
+    object GBP {
+      implicit val schema =
+        Schema.CaseClass2[Int, Int, GBP](
+          TypeId.fromTypeName(classOf[GBP].getName()),
+          Field("pounds", Schema[Int]),
+          Field("pence", Schema[Int]),
+          GBP(_,_),
+          _.pounds,
+          _.pence
+        )
+    }
 
     /**
      * EXERCISE
      *
      * Manually define a schema for the sealed trait `Amount`.
      */
-    implicit lazy val schema: Schema.Enum2[USD, GBP, Amount] = TODO
+    implicit lazy val schema: Schema.Enum2[USD, GBP, Amount] = 
+      Schema.Enum2[USD, GBP, Amount](
+        TypeId.fromTypeName(classOf[Amount].getName()),
+        Case("USD", Schema[USD], _.asInstanceOf[USD]),
+        Case("GBP", Schema[GBP], _.asInstanceOf[GBP])
+      )
   }
 
   //
@@ -221,7 +250,7 @@ object SchemaSection {
      * `DeriveSchema.gen` method.
      */
     implicit lazy val schema: Schema.CaseClass3[String, List[Actor], Director, Movie] =
-      TODO
+      DeriveSchema.gen[Movie]
 
     val bladeRunner = Movie("Blade Runner", List(Actor.harrisonFord), Director.ridleyScott)
   }
@@ -239,8 +268,8 @@ object SchemaSection {
      * Automatically derive a schema for the sealed trait `Color` using
      * `DeriveSchema.gen` method.
      */
-    implicit lazy val schema: Schema.Enum4[Blue.type, Custom, Green.type, Red.type, Color] =
-      TODO
+    implicit lazy val schema: Schema[Color] =
+      DeriveSchema.gen[Color]
   }
 
   //
@@ -256,7 +285,7 @@ object SchemaSection {
   final case class UserId(value: String)
   object UserId {
     implicit lazy val schema: Schema[UserId] =
-      Schema[String].TODO
+      Schema[String].transform(string => UserId(string), userId => userId.value)
   }
 
   /**
@@ -275,7 +304,7 @@ object SchemaSection {
       else Left(s"Invalid email: $value")
 
     implicit lazy val schema: Schema[Email] =
-      Schema[String].TODO
+      Schema[String].transformOrFail(fromString(_), email => Right(email.value))
   }
 
   //
@@ -287,7 +316,8 @@ object SchemaSection {
    *
    * Define a generic method that can extract out all the fields of any record.
    */
-  def fieldNames[C](schema: Schema.Record[C]): List[String] = TODO
+  def fieldNames[C](schema: Schema.Record[C]): List[String] = 
+    schema.structure.map(_.label).toList
 
   final case class User(name: String, password: String)
   object User {
@@ -310,7 +340,19 @@ object SchemaSection {
    * Define a generic method that can take strings in any "password" field and
    * replace their characters by asterisks, for security purposes.
    */
-  def maskPasswords[A](schema: Schema.Record[A], a: A): A = TODO
+  def maskPasswords[A](schema: Schema.Record[A], a: A): A = {
+    schema match {
+      case s @ Schema.CaseClass2(id, Field("password", valueSchema, _, _), _, _, _, _, _) if valueSchema == Schema[String] => 
+        val password = s.extractField1(a).asInstanceOf[String]
+
+        s.construct(List.fill(password.length)('*').mkString(""), s.extractField2(a))
+
+      case s @ Schema.CaseClass2(id, _, Field("password", _, _, _), _, _, _, _) => ???
+
+      case _ => ???
+    }
+  }
+    
 
   final case class CSV(headers: List[String], data: List[List[String]]) {
     def get(row: Int, field: String): Either[String, String] =
@@ -351,12 +393,14 @@ object SchemaSection {
    *
    * Define a protobuf encoder for the class `Movie`.
    */
-  lazy val movieEncoder: Movie => Chunk[Byte] = TODO
+  lazy val movieEncoder: Movie => Chunk[Byte] = 
+    zio.schema.codec.ProtobufCodec.encode(Schema[Movie])
 
   /**
    * EXERCISE
    *
    * Define a protobuf decoder for the class `Movie`.
    */
-  lazy val movieDecoder: Chunk[Byte] => Either[String, Movie] = TODO
+  lazy val movieDecoder: Chunk[Byte] => Either[String, Movie] = 
+    zio.schema.codec.ProtobufCodec.decode(Schema[Movie])
 }
