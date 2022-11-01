@@ -48,7 +48,7 @@ object SchemaSection {
    * class that has two fields.
    */
   def extractFirstField[F1, F2, T](schema: Schema.CaseClass2[F1, F2, T], t: T): F1 =
-    TODO
+    schema.extractField1(t)
 
   /**
    * EXERCISE
@@ -57,7 +57,7 @@ object SchemaSection {
    * class that has two fields.
    */
   def extractSecondField[F1, F2, T](schema: Schema.CaseClass2[F1, F2, T], t: T): F2 =
-    TODO
+    schema.extractField2(t)
 
   /**
    * EXERCISE
@@ -66,7 +66,7 @@ object SchemaSection {
    * has two fields.
    */
   def construct2[F1, F2, T](schema: Schema.CaseClass2[F1, F2, T], f1: F1, f2: F2): T =
-    TODO
+    schema.construct(f1, f2)
 
   //
   // SCHEMA CAPABILITIES FOR ENUMS
@@ -112,7 +112,7 @@ object SchemaSection {
    * the first of its subtypes.
    */
   def extractFirstCase[C1 <: T, C2 <: T, T](schema: Schema.Enum2[C1, C2, T], t: T): Option[C1] =
-    TODO
+    schema.case1.deconstruct(t)
 
   /**
    * EXERCISE
@@ -121,7 +121,7 @@ object SchemaSection {
    * the second of its subtypes.
    */
   def extractSecondCase[C1 <: T, C2 <: T, T](schema: Schema.Enum2[C1, C2, T], t: T): Option[C2] =
-    TODO
+    schema.case2.deconstruct(t)
 
   /**
    * EXERCISE
@@ -130,7 +130,7 @@ object SchemaSection {
    * trait. Hint: This is easier than you think due to the type bounds!
    */
   def constructFirstCase[C1 <: T, C2 <: T, T](schema: Schema.Enum2[C1, C2, T], c1: C1): T =
-    TODO
+    c1
 
   /**
    * EXERCISE
@@ -139,7 +139,7 @@ object SchemaSection {
    * trait. Hint: This is easier than you think due to the type bounds!
    */
   def constructSecondCase[C1 <: T, C2 <: T, T](schema: Schema.Enum2[C1, C2, T], c2: C2): T =
-    TODO
+    c2
 
   //
   // MANUAL CREATION OF SCHEMAS
@@ -151,21 +151,21 @@ object SchemaSection {
      *
      * Manually define a schema for the primitive type `Int`.
      */
-    implicit lazy val schemaInt: Schema[Int] = TODO
+    implicit lazy val schemaInt: Schema[Int] = Schema[Int]
 
     /**
      * EXERCISE
      *
      * Manually define a schema for the primitive type `String`.
      */
-    implicit lazy val schemaString: Schema[String] = TODO
+    implicit lazy val schemaString: Schema[String] = Schema[String]
 
     /**
      * EXERCISE
      *
      * Manually define a schema for the primitive type `Boolean`.
      */
-    implicit lazy val schemaBoolean: Schema[Boolean] = TODO
+    implicit lazy val schemaBoolean: Schema[Boolean] = Schema[Boolean]
   }
 
   final case class Point(x: Int, y: Int)
@@ -176,7 +176,15 @@ object SchemaSection {
      *
      * Manually define a schema for the case class `Point`.
      */
-    implicit lazy val schema: Schema.CaseClass2[Int, Int, Point] = TODO
+    implicit lazy val schema: Schema.CaseClass2[Int, Int, Point] =
+      Schema.CaseClass2[Int, Int, Point](
+        TypeId.fromTypeName(classOf[Point].getName()),
+        Schema.Field("x", Schema[Int]),
+        Schema.Field("y", Schema[Int]),
+        Point(_, _),
+        _.x,
+        _.y
+      )
   }
 
   sealed trait Amount
