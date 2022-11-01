@@ -12,8 +12,9 @@ object welcome {
   //
   // Daily Schedule (New York Time / London Time):
   //
-  //    START : 11:00 AM  /  4:00 PM
-  //    LUNCH : 12:45 PM  /  5:45 PM
-  //    END   :  3:00 PM  /  8:00 PM
+  //    START :  7:00 AM  / 11:00 AM
+  //    LUNCH : 10:00 AM  /  2:00 PM
+  //    RESUME: 11:00 AM  /  3:00 PM
+  //    END   :  2:00 PM  /  6:00 PM
   //
 }
