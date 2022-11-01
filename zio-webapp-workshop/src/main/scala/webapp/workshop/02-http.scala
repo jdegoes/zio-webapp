@@ -31,11 +31,15 @@ object HttpSection {
       Response.text("Hello World!")
     }
 
+  val executed: ZIO[Any, Option[Nothing], Response] = 
+    helloWorld(Request(url = URL(!! / "greet2")))
+
   //
   // TYPES
   //
 
   // Http[-R, +E, -A, +B] <: A => ZIO[R, Option[E], B]
+  // Option[E] = None | Some(e)
 
   /**
    * EXERCISE
@@ -43,7 +47,7 @@ object HttpSection {
    * Define an `Http` type that accepts a `String`, cannot fail with any typed
    * error, does not use the environment, and returns an `Int`.
    */
-  type StringToInt = TODO
+  type StringToInt = Http[Any, Nothing, String, Int]
 
   /**
    * EXERCISE
@@ -51,7 +55,7 @@ object HttpSection {
    * Define an `Http` type that accepts a `Person`, cannot fail with any typed
    * error, does not use the environment, and returns a `String`.
    */
-  type PersonNameExtractor = TODO
+  type PersonNameExtractor = Http[Any, Nothing, Person, String]
 
   /**
    * EXERCISE
@@ -59,7 +63,7 @@ object HttpSection {
    * Define an `Http` type that accepts an `A`, cannot fail with any typed
    * error, does not use the environment, and returns a `B`.
    */
-  type HttpFunction[-A, +B] = TODO
+  type HttpFunction[-A, +B] = Http[Any, Nothing, A, B]
 
   /**
    * EXERCISE
@@ -75,7 +79,7 @@ object HttpSection {
    * Define an `Http` type that accepts a `Request`, can fail with an error of
    * type `E`, uses an environment `R`, and returns a `Response`.
    */
-  type HttpApp2[-R, +E] = TODO
+  type HttpApp2[-R, +E] = Http[R, E, Request, Response]
 
   /**
    * EXERCISE
@@ -83,13 +87,13 @@ object HttpSection {
    * Define a specialization of `HttpApp2` that does not use an environment, and
    * which cannot fail with a typed error.
    */
-  type UHttpApp2 = TODO
+  type UHttpApp2 = HttpApp2[Any, Nothing]
 
   /**
    * Define a specialization of `HttpApp2` that uses an environment `R`, and
    * which can fail with an error of type `Throwable`.
    */
-  type RHttpApp2[-R] = TODO
+  type RHttpApp2[-R] = HttpApp[R, Throwable]
 
   //
   // HTTP CONSTRUCTORS
@@ -100,7 +104,7 @@ object HttpSection {
    *
    * Use `Http.empty` to construct an `Http` that does not handle any inputs.
    */
-  def unhandled: Http[Any, Nothing, Any, Nothing] = TODO
+  def unhandled: Http[Any, Nothing, Any, Nothing] = Http.empty
 
   /**
    * EXERCISE
@@ -108,7 +112,7 @@ object HttpSection {
    * Use `Http.succeed` to construct an `Http` that succeeds with the constant
    * value `42`.
    */
-  def httpSuccess: Http[Any, Nothing, Any, Int] = TODO
+  def httpSuccess: Http[Any, Nothing, Any, Int] = Http.succeed(42)
 
   /**
    * EXERCISE
@@ -116,7 +120,7 @@ object HttpSection {
    * Use `Http.fail` to construct an `Http` that fails with the constant value
    * `42`.
    */
-  def httpFailure: Http[Any, Int, Any, Nothing] = TODO
+  def httpFailure: Http[Any, Int, Any, Nothing] = Http.fail(42)
 
   /**
    * EXERCISE
@@ -124,7 +128,7 @@ object HttpSection {
    * Use `Http.identity` to create an Http whose input is a string, and which
    * succeeds with that same string.
    */
-  def stringIdentity: Http[Any, Nothing, String, String] = TODO
+  def stringIdentity: Http[Any, Nothing, String, String] = Http.identity[String]
 
   /**
    * EXERCISE
@@ -132,7 +136,8 @@ object HttpSection {
    * Use `Http.fromZIO` to turn `Console.readLine` into an `Http` that succeeds
    * with a line of text from the console.
    */
-  def consoleHttp: Http[Any, IOException, Any, String] = TODO
+  def consoleHttp: Http[Any, IOException, Any, String] = 
+    Http.fromZIO(Console.readLine)
 
   //
   // HTTPAPP CONSTRUCTORS
@@ -145,7 +150,12 @@ object HttpSection {
    * "http://ziowebapp.com/greet", whose headers are empty, and whose data is
    * the plain text string "Hello World!".
    */
-  lazy val exampleRequest1: Request = TODO
+  lazy val exampleRequest1: Request = 
+    Request(
+      body = Body.empty,
+      method = Method.PUT,
+      headers = Headers.accept("application/json"),
+      url = URL.fromString("http://ziowebapp.com/greet").fold(throw _, identity(_)))
 
   /**
    * EXERCISE
@@ -153,21 +163,22 @@ object HttpSection {
    * Create a `Response` whose status code is `200`, whose headers are empty,
    * and whose body is the plain text string "Hello World!".
    */
-  lazy val exampleResponse1: Response = TODO
+  lazy val exampleResponse1: Response = 
+    Response(body = Body.fromString("Hello World!"), status = Status.Ok)
 
   /**
    * EXERCISE
    *
    * Create an `HttpApp` that returns an OK status.
    */
-  lazy val httpOk: HttpApp[Any, Nothing] = TODO
+  lazy val httpOk: HttpApp[Any, Nothing] = Http.succeed(Response())
 
   /**
    * EXERCISE
    *
    * Create an `HttpApp` that returns a NOT_FOUND status.
    */
-  lazy val httpNotFound: HttpApp[Any, Nothing] = TODO
+  lazy val httpNotFound: HttpApp[Any, Nothing] = Http.succeed(Response(status = Status.NotFound))
 
   /**
    * EXERCISE
@@ -181,7 +192,7 @@ object HttpSection {
    *
    * Create a `HttpApp` that returns a BAD_REQUEST status.
    */
-  def httpBadRequest(msg: String): HttpApp[Any, Nothing] = TODO
+  def httpBadRequest(msg: String): HttpApp[Any, Nothing] = Http.badRequest("Uh oh!")
 
   /**
    * EXERCISE
@@ -189,7 +200,8 @@ object HttpSection {
    * Create a `HttpApp` that successfully returns the specified data. Hint: See
    * the Body constructors.
    */
-  def httpFromData(data: Body): HttpApp[Any, Nothing] = TODO
+  def httpFromData(data: Body): HttpApp[Any, Nothing] = 
+    Http.succeed(Response(body = data))
 
   /**
    * EXERCISE
@@ -197,14 +209,15 @@ object HttpSection {
    * Create a `HttpApp` that successfully returns a response based on the
    * contents of the specified file. Hint: See the HttpData constructors.
    */
-  def httpFromFile(file: java.io.File): HttpApp[Any, Throwable] = TODO
+  def httpFromFile(file: java.io.File): HttpApp[Any, Throwable] = 
+    Http.fromFile(file)
 
   /**
    * EXERCISE
    *
    * Create a `HttpApp` that successfully returns the provided response.
    */
-  def httpFromResponse(response: Response): HttpApp[Any, Nothing] = TODO
+  def httpFromResponse(response: Response): HttpApp[Any, Nothing] = Http.succeed(response)
 
   /**
    * EXERCISE
@@ -212,7 +225,8 @@ object HttpSection {
    * Create a `HttpApp` that successfully returns the provided, effectfully
    * computed response.
    */
-  def httpFromResponseZIO[R, E](response: ZIO[R, E, Response]): HttpApp[R, E] = TODO
+  def httpFromResponseZIO[R, E](response: ZIO[R, E, Response]): HttpApp[R, E] = 
+    Http.fromZIO(response)
 
   //
   // TRANSFORMATIONS
@@ -235,7 +249,8 @@ object HttpSection {
    * console.
    */
   val promptHttp                                                = Http.succeed("What is your name?")
-  lazy val interactiveHttp: Http[Any, IOException, Any, String] = TODO
+  lazy val interactiveHttp: Http[Any, IOException, Any, String] = 
+    promptHttp.mapZIO(question => Console.printLine(question) *> Console.readLine)
 
   /**
    * EXERCISE
@@ -243,7 +258,7 @@ object HttpSection {
    * Using `Http#as`, map the integer return value of `intHttp` into the
    * constant unit value (`()`).
    */
-  lazy val unitHttp: Http[Any, Nothing, Any, Unit] = intHttp.TODO
+  lazy val unitHttp: Http[Any, Nothing, Any, Unit] = intHttp.as(())
 
   /**
    * EXERCISE
@@ -254,7 +269,7 @@ object HttpSection {
   val httpDataUsingHttp: Http[Any, Throwable, URL, String] =
     Http.identity[URL].map(_.toJavaURI.toString())
   lazy val requestUsingHttp: Http[Any, Throwable, Request, String] =
-    httpDataUsingHttp.TODO
+    httpDataUsingHttp.contramap[Request](_.url)
 
   //
   // COMBINATIONS
@@ -286,7 +301,7 @@ object HttpSection {
    */
   val usHttp: Http[Any, Nothing, Country, String]          = lift { case Country.US => "I handle the US" }
   val ukHttp: Http[Any, Nothing, Country, String]          = lift { case Country.UK => "I handle the UK" }
-  lazy val usOrUkHttp: Http[Any, Nothing, Country, String] = usHttp.TODO
+  lazy val usOrUkHttp: Http[Any, Nothing, Country, String] = usHttp ++ ukHttp
 
   /**
    * EXERCISE
@@ -303,7 +318,7 @@ object HttpSection {
   val ukOrFail: Http[Any, String, Country, String] = liftEither {
     case Country.UK => Right("I handle the UK"); case _ => Left("I only handle the UK")
   }
-  lazy val usOrUkOrFail: Http[Any, String, Country, String] = usOrFail.TODO
+  lazy val usOrUkOrFail: Http[Any, String, Country, String] = usOrFail <> ukOrFail 
 
   /**
    * EXERCISE
@@ -313,7 +328,7 @@ object HttpSection {
    */
   val numberToString: Http[Any, Nothing, Int, String]   = Http.fromFunction[Int](_.toString)
   val stringToLength: Http[Any, Nothing, String, Int]   = Http.fromFunction[String](_.length)
-  lazy val digitsInNumber: Http[Any, Nothing, Int, Int] = numberToString.TODO
+  lazy val digitsInNumber: Http[Any, Nothing, Int, Int] = numberToString >>> stringToLength
 
   /**
    * EXERCISE
@@ -323,7 +338,7 @@ object HttpSection {
    */
   val printPrompt                                             = Http.fromZIO(Console.printLine("What is your name?"))
   val readAnswer                                              = Http.fromZIO(Console.readLine)
-  lazy val promptAndRead: Http[Any, IOException, Any, String] = printPrompt.TODO
+  lazy val promptAndRead: Http[Any, IOException, Any, String] = printPrompt *> readAnswer
 
   /**
    * EXERCISE
@@ -333,7 +348,7 @@ object HttpSection {
    */
   val httpNever                                           = Http.fromZIO(ZIO.never)
   val rightAway                                           = Http.succeed(42)
-  lazy val neverOrRightAway: Http[Any, Nothing, Any, Int] = httpNever.TODO
+  lazy val neverOrRightAway: Http[Any, Nothing, Any, Int] = httpNever.race(rightAway)
 
   /**
    * EXERCISE
@@ -341,8 +356,10 @@ object HttpSection {
    * Using `flatMap` (directly or with a `for` comprehension), implement the
    * following combinator.
    */
-  def dispatch[R, E, A, B](options: (A, Http[R, E, A, B])*): Http[R, E, A, B] =
-    TODO
+  def dispatch[R, E, A, B](options: (A, Http[R, E, A, B])*): Http[R, E, A, B] = 
+    options.foldLeft[Http[R, E, A, B]](Http.empty) {
+      case (acc, (input, http)) => acc ++ Http.collectHttp { case x if x == input => http }
+    }
   lazy val dispatchExample: Http[Any, Nothing, String, String] = dispatch(
     "route1" -> Http.succeed("Handled by route1"),
     "route2" -> Http.succeed("Handled by route2")
@@ -356,7 +373,7 @@ object HttpSection {
    */
   val httpFailed: Http[Any, String, Any, Nothing]         = Http.fail("I failed")
   val httpSucceeded: Http[Any, Nothing, Any, String]      = Http.succeed("I succeeded")
-  lazy val httpRecovered: Http[Any, Nothing, Any, String] = httpFailed.TODO
+  lazy val httpRecovered: Http[Any, Nothing, Any, String] = httpFailed.catchAll(_ => httpSucceeded)
 
   //
   // ROUTES
@@ -367,14 +384,14 @@ object HttpSection {
    *
    * Using `!!` (Path.End), construct the root path.
    */
-  lazy val rootPath: Path = TODO
+  lazy val rootPath: Path = !!
 
   /**
    * EXERCISE
    *
    * Using `/`, construct a path `/Baker/221B`.
    */
-  lazy val compositePath: Path = TODO
+  lazy val compositePath: Path = !! / "Baker" / "221B"
 
   /**
    * EXERCISE
@@ -383,7 +400,8 @@ object HttpSection {
    * tuple.
    */
   lazy val (extractedStreet, extractedNumber) = (compositePath match {
-    case _ => throw new RuntimeException("Unexpected path")
+    case !! / streetName / streetNumber => (streetName, streetNumber)
+    case _ => ???
   }): (String, String)
 
   /**
@@ -414,7 +432,10 @@ object HttpSection {
    * first path), and the farewell "Goodbye!" (for the second path).
    */
   lazy val greetAndFarewell: HttpApp[Any, Nothing] =
-    Http.collect[Request].TODO
+    Http.collect[Request] {
+      case Method.GET -> !! / "greet" => Response.text("Hello there!")
+      case Method.GET -> !! / "farewell" => Response.text("Goodbye!")
+    }
 
   object UserRepo {
     def lookupUser(id: String): ZIO[Any, Option[Nothing], Person] = ZIO.fromOption(id match {
@@ -423,6 +444,8 @@ object HttpSection {
       case _         => None
     })
   }
+  // localhost:8080/users/43
+  // "Sherlock Holmes"
 
   /**
    * EXERCISE
@@ -432,7 +455,10 @@ object HttpSection {
    * specified id and return their full name as plain text.
    */
   lazy val lookupUserApp: HttpApp[Any, Option[Nothing]] =
-    Http.collectZIO[Request].TODO
+    Http.collectZIO[Request] {
+      case Method.GET -> !! / "users" / userId => 
+        UserRepo.lookupUser(userId).map(p => Response.text(p.name))
+    }
 
   /**
    * EXERCISE
@@ -459,7 +485,8 @@ object HttpSection {
    */
   import zhttp.service._
   type ServerType = ZIO[Any, Throwable, Nothing]
-  lazy val helloWorldServer: ServerType = helloWorld.TODO
+  lazy val helloWorldServer: ServerType = 
+    Server.start(8080, helloWorld)
 
   //
   // GRADUATION
@@ -472,7 +499,7 @@ object HttpSection {
    */
   final case class Todo(id: Long, description: String, created: java.time.Instant, modified: java.time.Instant)
   object Todo {
-    implicit lazy val jsonCodec: JsonCodec[Todo] = TODO
+    implicit lazy val jsonCodec: JsonCodec[Todo] = DeriveJsonCodec.gen[Todo]
   }
 
   /**
@@ -482,7 +509,8 @@ object HttpSection {
    */
   final case class TodoDescription(description: String)
   object TodoDescription {
-    implicit lazy val jsonCodec: JsonCodec[TodoDescription] = TODO
+    implicit lazy val jsonCodec: JsonCodec[TodoDescription] = 
+      JsonCodec[String].transform(TodoDescription(_), _.description)
   }
 
   /**
@@ -492,7 +520,8 @@ object HttpSection {
    */
   final case class TodoCreated(id: Long)
   object TodoCreated {
-    implicit lazy val jsonCodec: JsonCodec[TodoCreated] = TODO
+    implicit lazy val jsonCodec: JsonCodec[TodoCreated] = 
+      JsonCodec[Long].transform(TodoCreated(_), _.id)
   }
 
   final case class TodoRepo(idGen: Ref[Long], todos: Ref[Map[Long, Todo]]) {
@@ -559,7 +588,8 @@ object HttpSection {
    * to a `Response`, using the correct `Content-Type` header.
    */
   implicit class AnyExtensions[A](val any: A) extends AnyVal {
-    def toResponse(implicit jsonEncoder: JsonEncoder[A]): Response = TODO
+    def toResponse(implicit jsonEncoder: JsonEncoder[A]): Response = 
+      Response.json(jsonEncoder.encodeJson(any, None))
   }
 
   /**
@@ -569,8 +599,12 @@ object HttpSection {
    * having a `JsonDecoder`.
    */
   implicit class RequestExtensions(val request: Request) extends AnyVal {
-    def as[A: JsonDecoder]: Task[A] = TODO
+    def as[A](implicit jsonDecoder: JsonDecoder[A]): Task[A] = 
+      request.body.asCharSeq.flatMap(charSequence => 
+        ZIO.fromEither(jsonDecoder.decodeJson(charSequence)).mapError(msg => new Exception(msg))
+      )
   }
+
 
   /**
    * EXERCISE
@@ -581,7 +615,12 @@ object HttpSection {
    * todo with the specified id }}
    */
   lazy val todoApp: HttpApp[TodoRepo, Throwable] =
-    Http.collectZIO[Request].TODO
+    Http.collectZIO[Request] {
+      case Method.GET  -> !! / "todos"            => TodoRepo.getAll.map(_.toResponse)
+      case Method.GET  -> !! / "todos" / id       => TodoRepo.getById(id.toLong).map(_.toResponse)
+      case req @ Method.POST -> !! / "todos"      => req.as[String].flatMap(TodoRepo.create(_)).map(_.toResponse)
+      case req @ Method.PUT  -> !! / "todos" / id => req.as[String].flatMap(TodoRepo.updateTodo(id.toLong, _)).map(_.toResponse)
+    }
 
   implicit class ResponseExtensions(val response: Response) extends AnyVal {
     def as[A: JsonDecoder]: Task[A] =

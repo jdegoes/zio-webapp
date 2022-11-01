@@ -209,7 +209,7 @@ object JsonSection {
    * string `jsonString2` into a map.
    */
   val jsonString2: String                      = """{"John":[1,2,3],"Peter":[4,5,6]}"""
-  lazy val decodedMap1: Map[String, List[Int]] = jsonString2.TODO
+  lazy val decodedMap1: Map[String, List[Int]] = JsonDecoder[Map[String, List[Int]]].decodeJson(jsonString2).toOption.get
 
   /**
    * EXERCISE
@@ -217,7 +217,7 @@ object JsonSection {
    * Use `JsonDecoder#map` to map a `JsonDecoder[String]` into a
    * `JsonDecoder[Email]`.
    */
-  lazy val emailDecoder: JsonDecoder[Email] = JsonDecoder[String].TODO
+  lazy val emailDecoder: JsonDecoder[Email] = JsonDecoder[String].map(Email(_))
 
   /**
    * EXERCISE
@@ -228,7 +228,7 @@ object JsonSection {
   val stringDecoder1 = JsonDecoder[String]
   val intDecoder1    = JsonDecoder[Int]
 
-  lazy val tupleDecoder1: JsonDecoder[(String, Int)] = stringDecoder1.TODO
+  lazy val tupleDecoder1: JsonDecoder[(String, Int)] = stringDecoder1.zip(intDecoder1)
 
   /**
    * EXERCISE
@@ -237,7 +237,7 @@ object JsonSection {
    * `Boolean`, but if that fails, decode it as an `Int`.
    */
   lazy val boolOrIntDecoder: JsonDecoder[Either[Boolean, Int]] =
-    JsonDecoder[Boolean].TODO
+    JsonDecoder[Boolean].orElseEither(JsonDecoder[Int])
 
   /**
    * EXERCISE
@@ -245,7 +245,7 @@ object JsonSection {
    * Using `DeriveJsonDecoder.gen`, automatically derive the decoder for the the
    * `RestaurantReview` case class.
    */
-  lazy val restaurantReviewDecoder: JsonDecoder[RestaurantReview] = DeriveJsonDecoder.TODO
+  lazy val restaurantReviewDecoder: JsonDecoder[RestaurantReview] = DeriveJsonDecoder.gen[RestaurantReview]
 
   /**
    * EXERCISE
@@ -253,7 +253,7 @@ object JsonSection {
    * Using `DeriveJsonDecoder.gen`, automatically derive the decoder for the
    * `PurchaseEvent` sealed trait.
    */
-  lazy val purchaseEventDecoder: JsonDecoder[PurchaseEvent] = DeriveJsonDecoder.TODO
+  lazy val purchaseEventDecoder: JsonDecoder[PurchaseEvent] = DeriveJsonDecoder.gen[PurchaseEvent]
 
   //
   // CODECS
@@ -267,7 +267,7 @@ object JsonSection {
    */
   final case class Doc(docId: String, content: String, owner: String)
   object Doc {
-    implicit lazy val codec: JsonCodec[Doc] = DeriveJsonCodec.TODO
+    implicit lazy val codec: JsonCodec[Doc] = DeriveJsonCodec.gen[Doc]
   }
 
   //
@@ -287,7 +287,7 @@ object JsonSection {
    * Convert from a stream of people to a stream of JSON strings.
    */
   def toJsonStream(stream: ZStream[Any, Nothing, Person]): ZStream[Any, Nothing, String] =
-    TODO
+    stream.map(person => person.toJson)
 
   /**
    * EXERCISE
@@ -295,5 +295,5 @@ object JsonSection {
    * Convert from a stream of JSON strings to a stream of people.
    */
   def toPeopleStream(stream: ZStream[Any, Nothing, String]): ZStream[Any, String, Person] =
-    TODO
+    stream.flatMap(string => ZStream.fromZIO(zio.ZIO.fromEither(string.fromJson[Person])))
 }
