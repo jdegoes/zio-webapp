@@ -24,6 +24,7 @@ import zio._
 import zio.metrics._
 
 import zhttp.http.middleware._
+import zhttp.http._
 
 object MetricsSection {
 
@@ -32,7 +33,8 @@ object MetricsSection {
    *
    * Using `Metric.counter`, create a counter called `web-requests`.
    */
-  lazy val webRequestsCounter: Metric.Counter[Long] = TODO
+  lazy val webRequestsCounter: Metric.Counter[Long] = 
+    Metric.counter("web-requests")  
 
   /**
    * EXERCISE
@@ -40,7 +42,8 @@ object MetricsSection {
    * Using `Metric.histogram`, create a histogram called `web-request-durations`
    * that will keep track of the durations of web requests.
    */
-  lazy val requestDurations: Metric.Histogram[Double] = TODO
+  lazy val requestDurations: Metric.Histogram[Double] = 
+    Metric.histogram("web-request-durations", MetricKeyType.Histogram.Boundaries.exponential(0.1, 2, 100))
 
   /**
    * EXERCISE
@@ -49,7 +52,7 @@ object MetricsSection {
    * will count database connections on an effect producing an `Int` (which
    * represents the number of active connections).
    */
-  lazy val databaseConnectionGauge: Metric.Gauge[Double] = TODO
+  lazy val databaseConnectionGauge: Metric.Gauge[Double] = Metric.gauge("database-connections")
 
   /**
    * EXERCISE
@@ -57,7 +60,8 @@ object MetricsSection {
    * Using `Metric.summary`, create a summary metric to be used for tracking
    * request durations on a sliding window of 60 minutes.
    */
-  lazy val requestDurationsSummary: Metric.Summary[Double] = TODO
+  lazy val requestDurationsSummary: Metric.Summary[Double] = 
+    Metric.summary("web-request-durations", 60.minutes, 1000, 0.1, Chunk(0.5, 0.9, 0.99))
 
   /**
    * EXERCISE
@@ -65,7 +69,8 @@ object MetricsSection {
    * Using `Metric.frequency`, create a `Frequency` metric that keeps track of
    * the number of occurrences of each HTTP response status code.
    */
-  lazy val httpResponseStatusCodes: Metric.Frequency[Int] = TODO
+  lazy val httpResponseStatusCodes: Metric.Frequency[Int] = 
+    Metric.frequency("http-response-status-codes").contramap(_.toString())
 
   //
   // METRICS USAGE
@@ -77,7 +82,8 @@ object MetricsSection {
    * Create an `HttpMiddleware` that counts the number of requests, using the
    * `webRequestsCounter` metric.
    */
-  lazy val webRequestsMiddleware: HttpMiddleware[Any, Nothing] = TODO
+  lazy val webRequestsMiddleware: HttpMiddleware[Any, Nothing] = 
+    Middleware.runAfter(webRequestsCounter.increment)
 
   /**
    * EXERCISE
@@ -85,7 +91,12 @@ object MetricsSection {
    * Create an `HttpMiddleware` that observes the durations of requests, using
    * the `requestDurations` metric.
    */
-  lazy val requestsDurationsMiddleware: HttpMiddleware[Any, Nothing] = TODO
+  lazy val requestsDurationsMiddleware: HttpMiddleware[Any, Nothing] = 
+    Middleware.interceptZIO[Request, Response](_ => Clock.instant)((response, start) =>
+      for {
+        end <- Clock.instant
+        _   <- requestDurations.update((end.toEpochMilli - start.toEpochMilli).toDouble / 1000.0)
+      } yield response)
 
   /**
    * EXERCISE
@@ -94,9 +105,9 @@ object MetricsSection {
    * `databaseConnectionGauge` metric.
    */
   class DatabaseConnectionTracker(ref: Ref[Int]) {
-    def increment: UIO[Int] = ref.updateAndGet(_ + 1)
+    def increment: UIO[Int] = ref.updateAndGet(_ + 1).tap(databaseConnectionGauge.update(_))
 
-    def decrement: UIO[Int] = ref.updateAndGet(_ - 1)
+    def decrement: UIO[Int] = ref.updateAndGet(_ - 1).tap(databaseConnectionGauge.update(_))
   }
 
   /**
@@ -105,7 +116,10 @@ object MetricsSection {
    * Create an `HttpMiddleware` that observes the HTTP response status codes,
    * using the `httpResponseStatusCodes` metric.
    */
-  lazy val httpResponseStatusCodesMiddleware: HttpMiddleware[Any, Nothing] = TODO
+  lazy val httpResponseStatusCodesMiddleware: HttpMiddleware[Any, Nothing] = 
+    Middleware.interceptZIO[Request, Response](_ => ZIO.unit)((response, _) => 
+      httpResponseStatusCodes.update(response.status.code).as(response)
+    )
 
   //
   // GRADUATION
@@ -128,7 +142,7 @@ object MetricsSection {
    */
   import zio.metrics.connectors._
   lazy val metricsConfig: ZLayer[Any, Nothing, MetricsConfig] =
-    ???
+    ZLayer.succeed(MetricsConfig(10.seconds))
 
   /**
    * Install a Prometheus, Statsd, or other backend to the following effect
@@ -138,5 +152,7 @@ object MetricsSection {
     (for {
       _ <- ZIO.log("Hello World!")
       _ <- Metric.counter("hello-worlds").increment
-    } yield ()).TODO
+    } yield ()).provide(metricsConfig, 
+      zio.metrics.connectors.prometheus.prometheusLayer, 
+      zio.metrics.connectors.prometheus.publisherLayer)
 }

@@ -31,6 +31,13 @@ object HttpSection {
       Response.text("Hello World!")
     }
 
+  val farewareWorld = 
+    Http.collect[Request] { case Method.GET -> !! / "farewell" =>
+      Response.text("Farewell World!")
+    }
+
+  val composed = helloWorld ++ farewareWorld // <>
+
   val executed: ZIO[Any, Option[Nothing], Response] = 
     helloWorld(Request(url = URL(!! / "greet2")))
 
@@ -621,6 +628,10 @@ object HttpSection {
       case req @ Method.POST -> !! / "todos"      => req.as[String].flatMap(TodoRepo.create(_)).map(_.toResponse)
       case req @ Method.PUT  -> !! / "todos" / id => req.as[String].flatMap(TodoRepo.updateTodo(id.toLong, _)).map(_.toResponse)
     }
+
+  object TodoApp extends ZIOAppDefault {
+    val run = Server.start(8080, todoApp).provide(TodoRepo.testLayer)
+  }
 
   implicit class ResponseExtensions(val response: Response) extends AnyVal {
     def as[A: JsonDecoder]: Task[A] =

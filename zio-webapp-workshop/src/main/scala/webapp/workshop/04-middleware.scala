@@ -18,6 +18,7 @@ import zio._
 import zio.json._
 import zhttp.http._
 import zhttp.http.middleware.HttpMiddleware
+import zhttp.http.middleware.Cors
 
 object MiddlewareSection {
 
@@ -52,7 +53,8 @@ object MiddlewareSection {
   // TYPES
   //
 
-  // type Middleware[R, E, AIn, BIn, AOut, BOut] = Http[R, E, AIn, BIn] => Http[R, E, AOut, BOut]
+  // type Middleware[R, E, AIn, BIn, AOut, BOut] = 
+  //   Http[R, E, AIn, BIn] => Http[R, E, AOut, BOut]
 
   //
   // CONSTRUCTORS
@@ -64,7 +66,8 @@ object MiddlewareSection {
    * Using `Middleware.cors()`, construct a middleware for Cross-Origin Resource
    * Sharing (CORS).
    */
-  lazy val corsMiddleware: HttpMiddleware[Any, Nothing] = TODO
+  lazy val corsMiddleware: HttpMiddleware[Any, Nothing] = 
+    Middleware.cors(Cors.CorsConfig())
 
   /**
    * EXERCISE
@@ -72,7 +75,8 @@ object MiddlewareSection {
    * Using `Middleware.debug`, construct a middleware for debugging status,
    * method, URL, and response timing.
    */
-  lazy val debugMiddleware: HttpMiddleware[Console with Clock, IOException] = TODO
+  lazy val debugMiddleware: HttpMiddleware[Console with Clock, IOException] = 
+    Middleware.debug 
 
   /**
    * EXERCISE
@@ -81,7 +85,8 @@ object MiddlewareSection {
    * specified cookie to responses.
    */
   val testCookie                                          = Cookie("sessionId", "12345")
-  lazy val cookieMiddleware: HttpMiddleware[Any, Nothing] = TODO
+  lazy val cookieMiddleware: HttpMiddleware[Any, Nothing] = 
+    Middleware.addCookie(testCookie)
 
   /**
    * EXERCISE
@@ -89,7 +94,8 @@ object MiddlewareSection {
    * Using `Middleware.timeout`, construct a middleware that times out requests
    * that take longer than 2 minutes.
    */
-  lazy val timeoutMiddleware: HttpMiddleware[Clock, Nothing] = TODO
+  lazy val timeoutMiddleware: HttpMiddleware[Clock, Nothing] = 
+    Middleware.timeout(2.minutes)
 
   /**
    * EXERCISE
@@ -97,7 +103,8 @@ object MiddlewareSection {
    * Using `Middleware.runBefore`, construct a middleware that prints out
    * "Starting to process request!" before the request is processed.
    */
-  lazy val beforeMiddleware: HttpMiddleware[Console, Nothing] = TODO
+  lazy val beforeMiddleware: HttpMiddleware[Console, Nothing] = 
+    Middleware.runBefore(Console.printLine("Starting to process request!").orDie)
 
   /**
    * EXERCISE
@@ -105,7 +112,8 @@ object MiddlewareSection {
    * Using `Middleware.runAfter`, construct a middleware that prints out "Done
    * with request!" after each request.
    */
-  lazy val afterMiddleware: HttpMiddleware[Console, Nothing] = TODO
+  lazy val afterMiddleware: HttpMiddleware[Console, Nothing] = 
+    Middleware.runAfter(Console.printLine("Done with request!").orDie)
 
   /**
    * EXERCISE
@@ -113,7 +121,8 @@ object MiddlewareSection {
    * Using `Middleware.basicAuth`, construct a middleware that performs fake
    * authorization for any user who has password "abc123".
    */
-  lazy val authMiddleware: HttpMiddleware[Any, Nothing] = TODO
+  lazy val authMiddleware: HttpMiddleware[Any, Nothing] = 
+    Middleware.basicAuth(c => c.upassword == "abc123")
 
   /**
    * EXERCISE
@@ -125,8 +134,12 @@ object MiddlewareSection {
    */
   def json[In: JsonDecoder, Out: JsonEncoder]: Middleware[Any, Nothing, In, Out, Request, Response] =
     Middleware.codecZIO[Request, Out](
-      request => TODO: ZIO[Any, Nothing, In],
-      response => TODO: ZIO[Any, Nothing, Response]
+      request => 
+        (for {
+          charSeq <- request.body.asCharSeq
+          in      <- ZIO.fromEither(JsonDecoder[In].decodeJson(charSeq)).mapError(msg => new RuntimeException(msg))
+        } yield in).orDie,
+      response => ZIO.succeed(Response.text(JsonEncoder[Out].encodeJson(response, None)))
     )
 
   //
@@ -143,7 +156,8 @@ object MiddlewareSection {
     case UsersRequest.Create(name, email) => UsersResponse.Created(User(name, email, "abc123"))
     case UsersRequest.Get(id)             => UsersResponse.Got(User(id.toString, "", ""))
   }
-  lazy val usersServiceHttpApp: HttpApp[Any, Nothing] = TODO
+  lazy val usersServiceHttpApp: HttpApp[Any, Nothing] = 
+    usersService @@ json[UsersRequest, UsersResponse]
 
   /**
    * EXERCISE
@@ -152,7 +166,8 @@ object MiddlewareSection {
    * `authMiddleware` to construct a middleware that performs each function in
    * sequence.
    */
-  lazy val beforeAfterAndAuth1: HttpMiddleware[Console, Nothing] = TODO
+  lazy val beforeAfterAndAuth1: HttpMiddleware[Console, Nothing] = 
+    beforeMiddleware >>> afterMiddleware >>> authMiddleware
 
   /**
    * EXERCISE
@@ -161,7 +176,8 @@ object MiddlewareSection {
    * `authMiddleware` to construct a middleware that performs each function in
    * sequence.
    */
-  lazy val beforeAfterAndAuth2: HttpMiddleware[Console, Nothing] = TODO
+  lazy val beforeAfterAndAuth2: HttpMiddleware[Console, Nothing] = 
+    beforeMiddleware ++ afterMiddleware ++ authMiddleware
 
   //
   // GRADUATION
@@ -175,7 +191,17 @@ object MiddlewareSection {
    * values backed by LogAnnotations populated by the middleware.
    */
   lazy val requestLogger: HttpMiddleware[Any, Nothing] =
-    Middleware.TODO
+    Middleware.interceptZIO[Request, Response](
+      request => Clock.instant <* ZIO.log(request.toString()))(
+        (response, start) => 
+          for {
+            end <- Clock.instant 
+            duration = end.toEpochMilli - start.toEpochMilli
+            _   <- ZIO.log(response.toString())
+            _   <- ZIO.log(s"Duration of request: $duration")
+          } yield response 
+      )
+  
 
   /**
    * EXERCISE
@@ -200,7 +226,18 @@ object MiddlewareSection {
     proj: Headers => Option[A],
     unproj: A => Headers
   ): HttpMiddleware[Any, Nothing] =
-    Middleware.interceptZIO.TODO
+    Middleware.interceptZIO[Request, Response]({ request =>
+      proj(request.headers) match {
+        case None => ZIO.succeed(Headers.empty)
+        case Some(a) => logContext.update(_.annotate(logAnn, a)) *> ZIO.succeed(unproj(a))
+      }
+    }){ (response, headers) => ZIO.succeed(response.updateHeaders(_ ++ headers)) }
+
+  val XTraceId: LogAnnotation[String] = LogAnnotation[String](
+    name = "trace_id",
+    combine = (_: String, r : String) => r,
+    render = _.toString
+  )
 
   /**
    * EXERCISE
@@ -211,5 +248,7 @@ object MiddlewareSection {
    * response as a `X-Trace-Id` header.
    */
   lazy val traceId: HttpMiddleware[Any, Nothing] =
-    TODO
+    logged[String](XTraceId, 
+      (headers: Headers) => headers.headerValue("X-Trace-Id"), 
+      (value: String) => Headers("X-Trace-Id" -> value))
 }

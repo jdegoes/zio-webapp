@@ -55,7 +55,12 @@ object LoggingSection {
         context: FiberRefs,
         spans: List[LogSpan],
         annotations: Map[String, String]
-      ): String = TODO
+      ): String = {
+        val causeStr = if (cause != Cause.empty) " " + cause.prettyPrint else ""
+        val annsStr  = annotations.map { case (k, v) => s"$k=$v" }.mkString(",")
+
+        s"[${logLevel.label}] ${spans.map(_.label).mkString("[", ", ", "]")} ${fiberId.threadName} ${message()}${causeStr} ${annsStr}"
+      }
     }
 
   /**
@@ -65,7 +70,8 @@ object LoggingSection {
    * message generated, it will append the message to `logOutput` using the
    * function `appendLogMessage`.
    */
-  lazy val testStringLogger: ZLogger[String, Unit] = testStringLogFormatter.TODO
+  lazy val testStringLogger: ZLogger[String, Unit] = 
+    testStringLogFormatter.map(println(_))
 
   lazy val testLoggerSet: ZLogger[String, Any] = testStringLogger
 
@@ -78,7 +84,7 @@ object LoggingSection {
   lazy val loggingNoDefault =
     (for {
       _ <- ZIO.log("This won't go anywhere!")
-    } yield ()).TODO
+    } yield ()).provide(Runtime.removeDefaultLoggers, Runtime.addLogger(testStringLogger))
 
   //
   // LOGGING FRONTEND
@@ -89,28 +95,34 @@ object LoggingSection {
    *
    * Using `ZIO.logInfo`, log a message that includes the word `coffee`.
    */
-  lazy val coffeeLogInfo: UIO[Any] = TODO
+  lazy val coffeeLogInfo: UIO[Any] = 
+    ZIO.logInfo("I love coffee")
+
+  // ZIO.log("I love coffee")
 
   /**
    * EXERCISE
    *
    * Using `ZIO.logDebug`, log a message that includes the word `tea`.
    */
-  lazy val teaLogDebug: UIO[Any] = TODO
+  lazy val teaLogDebug: UIO[Any] = 
+    ZIO.logDebug("I love tea")
 
   /**
    * EXERCISE
    *
    * Using `ZIO.logError`, log a message that includes the word `milk`.
    */
-  lazy val milkLogError: UIO[Any] = TODO
+  lazy val milkLogError: UIO[Any] = 
+    ZIO.logError("I love milk")
 
   /**
    * EXERCISE
    *
    * Using `ZIO.log`, log a message that includes the word `curry`.
    */
-  lazy val curryLog: UIO[Any] = TODO
+  lazy val curryLog: UIO[Any] = 
+    ZIO.log("I love curry")
 
   /**
    * EXERCISE
@@ -118,7 +130,10 @@ object LoggingSection {
    * Using `ZIO.logLevel`, set the log level for an inner `ZIO.log` message to
    * `DEBUG`.
    */
-  lazy val logLevelDebug: UIO[Any] = TODO
+  lazy val logLevelDebug: UIO[Any] = 
+    ZIO.logLevel(LogLevel.Debug) {
+      ZIO.log("I love curry")
+    }
 
   /**
    * EXERCISE
@@ -126,13 +141,21 @@ object LoggingSection {
    * Using `ZIO.logLevel`, set the log level for an inner `ZIO.log` message to
    * `ERROR`.
    */
-  lazy val logLevelError: UIO[Any] = TODO
+  lazy val logLevelError: UIO[Any] = 
+    ZIO.logLevel(LogLevel.Error) {
+      ZIO.log("I love curry")
+    }
 
   /**
    * Using `ZIO.logSpan` with a label of "database-query", log a message that
    * says "querying database".
    */
-  lazy val queryingDatabase: UIO[Any] = ZIO.TODO
+  lazy val queryingDatabase: UIO[Any] =
+    ZIO.logAnnotate("user-id", "jdegoes") {
+      ZIO.logSpan("database-query") {
+        ZIO.log("querying database")
+      }
+    }
 
   //
   // ZIO LOGGING
@@ -146,7 +169,13 @@ object LoggingSection {
    * major elements of log messages, including time stamp, message, and log
    * level.
    */
-  lazy val myLogFormat: LogFormat = LogFormat.default
+  lazy val myLogFormat: LogFormat = 
+    LogFormat.level |-| LogFormat.timestamp.color(LogColor.CYAN) |-| LogFormat.quoted(LogFormat.line)
+
+  /*
+  LogFormat.colored |-| LogFormat.level |-| 
+  LogFormat.spans |-| LogFormat.quoted(LogFormat.line) |-| LogFormat.cause
+  */
 
   /**
    * EXERCISE
@@ -157,5 +186,5 @@ object LoggingSection {
   lazy val loggedToConsole: ZIO[Any, Nothing, Unit] =
     (for {
       _ <- ZIO.log("Hello World!")
-    } yield ()).TODO
+    } yield ()).provide(zio.logging.backend.SLF4J.slf4j(myLogFormat), zio.logging.console(myLogFormat))
 }
