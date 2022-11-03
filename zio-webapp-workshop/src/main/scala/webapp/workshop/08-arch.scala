@@ -15,6 +15,7 @@ package webapp.workshop
 
 import zio._
 import zhttp.http._
+import zio.jdbc.ZConnectionPool
 
 object ArchSection {
   //
@@ -37,6 +38,63 @@ object ArchSection {
    */
 
   // https://www.oracle.com/technical-resources/articles/javaee/pet-store-application.html
+
+  trait UserRepo {
+    import UserRepo._ 
+    
+    def lookupUserById(id: UserId): UIO[Option[User]]
+
+    def createUser(user: User): UIO[Unit]
+
+    def deleteUser(id: UserId): UIO[Unit]
+
+    def updateUser(user: User): UIO[Unit]
+  }
+  object UserRepo {
+    final case class UserId(value: String)
+    final case class User(id: UserId, name: String)
+  }
+
+  // my.service.ServiceDef
+  // my.service.prod.ServiceImpl 
+  // my.service.test.TestServiceImpl 
+
+  final case class Caps(canRead: Boolean, canWrite: Boolean)
+
+  final case class UserRepoLive(ref: Ref[Caps], connectionPool: zio.jdbc.ZConnectionPool) extends UserRepo {
+    import UserRepo._ 
+
+    def initialize: UIO[Any] = ZIO.unit 
+
+    def lookupUserById(id: UserId): UIO[Option[User]] = ???
+
+    def createUser(user: User): UIO[Unit] = ???
+
+    def deleteUser(id: UserId): UIO[Unit] = ???
+
+    def updateUser(user: User): UIO[Unit] = ???
+
+    def cleanup: UIO[Any] = ZIO.unit 
+  }
+  object UserRepoLive {
+    val layer = 
+      ZLayer.scoped {
+        for {
+          connectionPool <- ZIO.service[ZConnectionPool]
+          capsRef        <- Ref.make(Caps(canRead = true, canWrite = true))
+          userRepo       <- ZIO.succeed(UserRepoLive(capsRef, connectionPool))
+          _              <- userRepo.initialize
+          _              <- ZIO.addFinalizer(userRepo.cleanup)
+        } yield userRepo: UserRepo
+      }
+  }
+
+  object MyApp extends ZIOAppDefault {
+    val subLayer: ZLayer[Any, Throwable, UserRepo] = 
+      ZLayer.make[UserRepo](zio.jdbc.ZConnectionPool.h2test, UserRepoLive.layer)
+
+    def run = ZIO.service[UserRepo].provide(subLayer)
+  }
 
   /**
    * SERVICES

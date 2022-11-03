@@ -57,9 +57,9 @@ object PersistenceSection {
       createTable
     }
 
-  val insertedDetectives: ZIO[ZConnectionPool, Throwable, List[Unit]] =
+  val insertedDetectives: ZIO[ZConnectionPool, Throwable, Unit] =
     transaction {
-      ZIO.foreach(Detective.famous) { detective =>
+      ZIO.foreachDiscard(Detective.famous) { detective =>
         execute {
           sql"insert into detectives (name) values (${detective.name})"
         }
@@ -101,15 +101,28 @@ object PersistenceSection {
    *   - `age` - integer (non-nullable)
    *   - `email` - variable-length string (non-nullable)
    */
-  lazy val createTable2: ZIO[ZConnectionPool, Throwable, Unit] = TODO
+  lazy val createTable2: ZIO[ZConnectionPool, Throwable, Unit] = 
+    transaction {
+      execute {
+        sql"""
+        create table users (
+          id    IDENTITY,
+          name  VARCHAR NOT NULL,
+          age   INT NOT NULL,
+          email VARCHAR NOT NULL
+        )
+        """
+      }
+    }
 
   /**
    * EXERCISE
    *
-   * Execute the `createTable2` command by using the `ZScalikeJDBC.transaction`
+   * Execute the `createTable2` command by using the `transaction`
    * layer.
    */
-  lazy val executedCreateTable2: ZIO[ZConnectionPool, Throwable, Unit] = TODO
+  lazy val executedCreateTable2: ZIO[Any, Throwable, Unit] =
+    createTable2.provide(ZConnectionPool.h2test)
 
   //
   // ADT
@@ -125,10 +138,10 @@ object PersistenceSection {
     implicit val schema: Schema[User] = DeriveSchema.gen[User]
 
     implicit val userDecoder: JdbcDecoder[User] =
-      new JdbcDecoder[User] {
-        def unsafeDecode(rs: java.sql.ResultSet): User =
-          ???
-      }
+      JdbcDecoder.fromSchema[User]
+
+    implicit val userEncoder: JdbcEncoder[User] = 
+      JdbcEncoder.fromSchema[User]
   }
 
   //
@@ -158,7 +171,12 @@ object PersistenceSection {
    *
    * Delete 'Jim Rockford' from the `users` table.
    */
-  lazy val deletedJimRockfordUser: RIO[ZConnectionPool, Int] = TODO
+  lazy val deletedJimRockfordUser: RIO[ZConnectionPool, Long] = 
+    transaction {
+      update {
+        sql"delete from users where name = 'Jim Rockford'"
+      }
+    }
 
   //
   // UPDATES
@@ -170,7 +188,13 @@ object PersistenceSection {
    * Change the name of the user `Sherlock Holmes` to `Sherlock Holmes and John
    * Watson`.
    */
-  lazy val updatedSherlockHolmesUser: RIO[ZConnectionPool, Int] = TODO
+  lazy val updatedSherlockHolmesUser: RIO[ZConnectionPool, Long] =
+    transaction {
+      update {
+        sql"update users set name = 'Sherlock Holmes and John Watson' where name = 'Sherlock Holmes'"
+      }
+    }
+
 
   //
   // SELECTION
@@ -181,14 +205,24 @@ object PersistenceSection {
    *
    * Select all users from the `users` table.
    */
-  lazy val allUsers: RIO[ZConnectionPool, List[User]] = TODO
+  lazy val allUsers: RIO[ZConnectionPool, Chunk[User]] = 
+    transaction {
+      selectAll {
+        sql"select * from users".as[User]
+      }
+    }
 
   /**
    * EXERCISE
    *
    * Select the single user from the table whose email is 'sherlock@holmes.com'.
    */
-  lazy val singleUser: RIO[ZConnectionPool, Option[User]] = TODO
+  lazy val singleUser: RIO[ZConnectionPool, Option[User]] = 
+    transaction {
+      selectOne {
+        sql"select * from users where email = 'sherlock@holmes.com'".as[User]
+      }
+    }
 
   //
   // GRADUATION
@@ -199,8 +233,15 @@ object PersistenceSection {
    *
    * Use ZIO Schema to decode the result set into a case class.
    */
-  def selectOneAs[A: Schema](sql: => Sql[_]): RIO[ZConnectionPool, Option[A]] =
-    TODO
+  def selectOneAs[A: Schema](sql: => Sql[_]): RIO[ZConnectionPool, Option[A]] = {
+    implicit val decoder = JdbcDecoder.fromSchema[A]
+
+    transaction {
+      selectOne {
+        sql.as[A]
+      }
+    }
+  }
 
   /**
    * EXERCISE
@@ -208,8 +249,15 @@ object PersistenceSection {
    * Use ZIO Schema to decode the result set into a case class, or fail with a
    * descriptive error message if this is not possible.
    */
-  def selectManyAs[A: Schema](sql: => Sql[_]): RIO[ZConnectionPool, Chunk[A]] =
-    ???
+  def selectManyAs[A: Schema](sql: => Sql[_]): RIO[ZConnectionPool, Chunk[A]] = {
+    implicit val decoder = JdbcDecoder.fromSchema[A]
+
+    transaction {
+      selectAll {
+        sql.as[A]
+      }
+    }
+  }
 
   /**
    * EXERCISE
@@ -217,9 +265,23 @@ object PersistenceSection {
    * Use ZIO Schema to encode the case class into a SQL insertion statement, or
    * fail with a descriptive error message if this is not possible.
    */
-  def insertAllFrom[A: Schema](table: String, a: => Iterable[A]): RIO[ZConnectionPool, Int] =
-    ???
+  def insertAllFrom[A: Schema](table: String, as: => Iterable[A]): RIO[ZConnectionPool, Long] = {
+    implicit val encoder = JdbcEncoder.fromSchema[A]
 
-  def insertOneFrom[A: Schema](table: String, a: => A): RIO[ZConnectionPool, Int] =
+    val schema = Schema[A]
+
+    val fieldNames = schema match {
+      case record : Schema.Record[_] => record.structure.map(_.label)
+      case _ => Chunk.empty 
+    }
+
+    transaction {
+      update {
+        Sql.insertInto(table)(fieldNames: _*).values(as)
+      }
+    }
+  }
+
+  def insertOneFrom[A: Schema](table: String, a: => A): RIO[ZConnectionPool, Long] =
     insertAllFrom(table, List(a))
 }

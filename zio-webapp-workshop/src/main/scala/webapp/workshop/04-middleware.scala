@@ -44,10 +44,12 @@ object MiddlewareSection {
   //
   // TOUR
   //
-  val helloWorld =
+  lazy val helloWorld =
     Http.collect[Request] { case Method.GET -> !! / "greet" =>
       Response.text("Hello World!")
-    } @@ Middleware.debug
+    } @@ myMiddleware
+
+  lazy val myMiddleware = Middleware.debug >>> Middleware.cors()
 
   //
   // TYPES
@@ -251,4 +253,11 @@ object MiddlewareSection {
     logged[String](XTraceId, 
       (headers: Headers) => headers.headerValue("X-Trace-Id"), 
       (value: String) => Headers("X-Trace-Id" -> value))
+
+  val addRequestURL: HttpMiddleware[Any, Nothing] = 
+    Middleware.interceptZIO[Request, Response](
+      request => FiberRef.currentLogAnnotations.update(_ + ("request-url" -> request.url.toString())))(
+      (response, _) => FiberRef.currentLogAnnotations.update(_ - "request-url").as(response)
+    )
+
 }
